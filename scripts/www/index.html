@@ -1,11 +1,666 @@
 <!DOCTYPE html>
-<html lang="en">
-    <head>
-        <meta charset="UTF-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <title>PakePlus</title>
-    </head>
-    <body>
-        PakePlus
-    </body>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#f97316">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="箱体计算器">
+    <title>箱体用料计算器</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#3b82f6',
+                        secondary: '#64748b',
+                        accent: '#f97316',
+                        neutral: '#f1f5f9',
+                        'neutral-dark': '#334155'
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'system-ui', 'sans-serif']
+                    },
+                    animation: {
+                        'spin-slow': 'spin 3s linear infinite',
+                    }
+                }
+            }
+        }
+    </script>
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .perspective-1000 {
+                perspective: 1000px;
+            }
+            .preserve-3d {
+                transform-style: preserve-3d;
+            }
+            .backface-hidden {
+                backface-visibility: hidden;
+            }
+            .rotate-y-0 {
+                transform: rotateY(0deg);
+            }
+            .rotate-y-90 {
+                transform: rotateY(90deg);
+            }
+            .rotate-y-180 {
+                transform: rotateY(180deg);
+            }
+            .rotate-y-270 {
+                transform: rotateY(270deg);
+            }
+            .rotate-x-90 {
+                transform: rotateX(90deg);
+            }
+            .rotate-x-270 {
+                transform: rotateX(270deg);
+            }
+            .translate-z-half {
+                transform: translateZ(150px);
+            }
+            .face-highlight {
+                box-shadow: 0 0 20px 5px rgba(249, 115, 22, 0.7);
+                z-index: 10;
+            }
+        }
+    </style>
+    <style>
+        body {
+            font-family: 'Inter', system-ui, sans-serif;
+        }
+        
+        .cube-container {
+            width: 200px;
+            height: 200px;
+            position: relative;
+            perspective: 800px;
+            margin: 0 auto;
+        }
+        
+        .cube {
+            width: 100%;
+            height: 100%;
+            position: relative;
+            transform-style: preserve-3d;
+            transition: transform 1s ease;
+            transform: rotateX(-15deg) rotateY(25deg);
+            cursor: grab;
+        }
+        
+        .cube:active {
+            cursor: grabbing;
+        }
+        
+        .face {
+            position: absolute;
+            width: 200px;
+            height: 200px;
+            background-color: rgba(59, 130, 246, 0.7);
+            border: 1px solid #2563eb;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            color: white;
+            backface-visibility: hidden;
+            transition: all 0.3s ease;
+        }
+        
+        .face-content {
+            text-align: center;
+        }
+        
+        .face-number {
+            font-size: 24px;
+            font-weight: bold;
+            margin-bottom: 4px;
+        }
+        
+        .face-area-label {
+            font-size: 10px;
+            margin-bottom: 1px;
+        }
+        
+        .face-area-value {
+            font-size: 12px;
+            font-weight: bold;
+            margin-bottom: 4px;
+        }
+        
+        .face-dimensions {
+            font-size: 8px;
+            line-height: 1.3;
+        }
+        
+        .face-1 { transform: translateZ(100px); }
+        .face-2 { transform: rotateY(180deg) translateZ(100px); }
+        .face-3 { transform: rotateY(90deg) translateZ(100px); }
+        .face-4 { transform: rotateY(-90deg) translateZ(100px); }
+        .face-5 { transform: rotateX(90deg) translateZ(100px); }
+        .face-6 { transform: rotateX(-90deg) translateZ(100px); }
+        
+        .face.selected {
+            background-color: rgba(249, 115, 22, 0.8);
+            border-color: #ea580c;
+            box-shadow: 0 0 20px 5px rgba(249, 115, 22, 0.7);
+            z-index: 10;
+        }
+        
+        .input-group {
+            display: flex;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+        
+        .input-group label {
+            width: 60px;
+            font-weight: 500;
+        }
+        
+        .input-group input {
+            width: 100px;
+            padding: 0.5rem;
+            border: 1px solid #cbd5e1;
+            border-radius: 0.375rem;
+            text-align: center;
+        }
+        
+        .face-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 0.75rem;
+            padding: 0.75rem;
+            border-radius: 0.375rem;
+            transition: background-color 0.2s;
+            background-color: #f8fafc;
+            border: 1px solid #e2e8f0;
+        }
+        
+        .face-item:hover {
+            background-color: #f1f5f9;
+        }
+        
+        .face-item input[type="checkbox"] {
+            margin-right: 0.75rem;
+            width: 20px;
+            height: 20px;
+            accent-color: #f97316;
+        }
+        
+        .face-item .face-name {
+            width: 100px;
+            font-weight: 500;
+            font-size: 14px;
+        }
+        
+        .face-item .face-area {
+            font-weight: 600;
+            color: #3b82f6;
+            font-size: 14px;
+        }
+        
+        .total-area {
+            font-size: 1.25rem;
+            font-weight: bold;
+            color: #f97316;
+        }
+        
+        .btn-calculate {
+            background-color: #3b82f6;
+            color: white;
+            padding: 0.75rem 1.5rem;
+            border-radius: 0.375rem;
+            font-weight: 500;
+            transition: background-color 0.2s;
+        }
+        
+        .btn-calculate:hover {
+            background-color: #2563eb;
+        }
+        
+        .tooltip {
+            position: relative;
+            display: inline-block;
+            margin-left: 0.5rem;
+            cursor: help;
+        }
+        
+        .tooltip .tooltip-text {
+            visibility: hidden;
+            width: 200px;
+            background-color: #334155;
+            color: #fff;
+            text-align: center;
+            border-radius: 6px;
+            padding: 8px;
+            position: absolute;
+            z-index: 1;
+            bottom: 125%;
+            left: 50%;
+            margin-left: -100px;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        
+        .tooltip:hover .tooltip-text {
+            visibility: visible;
+            opacity: 1;
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <div class="container mx-auto px-4 py-2">
+        <header class="text-center mb-4">
+            <h1 class="text-lg font-bold text-gray-800 mb-1">箱体用料计算器</h1>
+            <p class="text-gray-600 text-xs">输入长宽高，计算用料面积</p>
+        </header>
+        
+        <div class="flex flex-col gap-4">
+            <!-- 输入和计算区域 -->
+            <div class="bg-white p-4 rounded-lg shadow-md w-full">
+                <h2 class="text-base font-semibold mb-3 text-gray-800">尺寸输入</h2>
+                
+                <div class="grid grid-cols-3 gap-3 mb-3">
+                    <div class="text-center">
+                        <label for="length" class="block text-xs font-medium text-gray-700 mb-1">长 (cm)</label>
+                        <input type="number" id="length" placeholder="0" min="0" step="0.01" class="w-full px-2 py-2 border border-gray-300 rounded-md text-center text-sm focus:border-blue-500 focus:ring focus:ring-blue-200 focus:ring-opacity-50">
+                    </div>
+                    <div class="text-center">
+                        <label for="width" class="block text-xs font-medium text-gray-700 mb-1">宽 (cm)</label>
+                        <input type="number" id="width" placeholder="0" min="0" step="0.01" class="w-full px-2 py-2 border border-gray-300 rounded-md text-center text-sm focus:border-blue-500 focus:ring focus:ring-blue-200 focus:ring-opacity-50">
+                    </div>
+                    <div class="text-center">
+                        <label for="height" class="block text-xs font-medium text-gray-700 mb-1">高 (cm)</label>
+                        <input type="number" id="height" placeholder="0" min="0" step="0.01" class="w-full px-2 py-2 border border-gray-300 rounded-md text-center text-sm focus:border-blue-500 focus:ring focus:ring-blue-200 focus:ring-opacity-50">
+                    </div>
+                </div>
+                
+                <button id="calculate-btn" class="w-full bg-orange-500 text-white font-semibold py-2 px-4 rounded-md hover:bg-orange-600 transition-colors duration-200 text-sm mt-2">
+                    <i class="fa fa-calculator mr-1"></i>计算面积
+                </button>
+                
+                <h2 class="text-base font-semibold mt-6 mb-3 text-gray-800">面选择与面积</h2>
+                
+                <div id="faces-container" class="space-y-3">
+                    <!-- 面选择项将通过JS动态生成 -->
+                </div>
+                
+                <div class="mt-4 p-4 bg-orange-50 rounded-lg border border-orange-200">
+                    <div class="flex justify-between items-center">
+                        <span class="text-base font-medium">已选面总面积：</span>
+                        <span id="total-area" class="text-lg font-bold text-orange-500">0.00 cm²</span>
+                    </div>
+                    <div class="flex justify-between items-center mt-2">
+                        <span class="text-base font-medium">六个面总面积：</span>
+                        <span id="all-faces-area" class="text-base font-semibold text-blue-500">0.00 cm²</span>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 立方体展示区域 -->
+            <div class="bg-white p-4 rounded-lg shadow-md flex flex-col items-center w-full">
+                <h2 class="text-base font-semibold mb-4 text-gray-800">3D 箱体预览</h2>
+                
+                <div class="cube-container mb-4">
+                    <div id="cube" class="cube">
+                        <div class="face face-1">
+                            <div class="face-content">
+                                <div class="face-number">1</div>
+                                <div class="face-area-label">面积:</div>
+                                <div class="face-area-value" id="face1-area">0.00 cm²</div>
+                                <div class="face-dimensions" id="face1-dims">长×高</div>
+                            </div>
+                        </div>
+                        <div class="face face-2">
+                            <div class="face-content">
+                                <div class="face-number">2</div>
+                                <div class="face-area-label">面积:</div>
+                                <div class="face-area-value" id="face2-area">0.00 cm²</div>
+                                <div class="face-dimensions" id="face2-dims">长×高</div>
+                            </div>
+                        </div>
+                        <div class="face face-3">
+                            <div class="face-content">
+                                <div class="face-number">3</div>
+                                <div class="face-area-label">面积:</div>
+                                <div class="face-area-value" id="face3-area">0.00 cm²</div>
+                                <div class="face-dimensions" id="face3-dims">长×高</div>
+                            </div>
+                        </div>
+                        <div class="face face-4">
+                            <div class="face-content">
+                                <div class="face-number">4</div>
+                                <div class="face-area-label">面积:</div>
+                                <div class="face-area-value" id="face4-area">0.00 cm²</div>
+                                <div class="face-dimensions" id="face4-dims">长×高</div>
+                            </div>
+                        </div>
+                        <div class="face face-5">
+                            <div class="face-content">
+                                <div class="face-number">5</div>
+                                <div class="face-area-label">面积:</div>
+                                <div class="face-area-value" id="face5-area">0.00 cm²</div>
+                                <div class="face-dimensions" id="face5-dims">长×高</div>
+                            </div>
+                        </div>
+                        <div class="face face-6">
+                            <div class="face-content">
+                                <div class="face-number">6</div>
+                                <div class="face-area-label">面积:</div>
+                                <div class="face-area-value" id="face6-area">0.00 cm²</div>
+                                <div class="face-dimensions" id="face6-dims">长×高</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="mt-3 text-center text-gray-600">
+                    <p class="text-xs text-gray-500">提示：点击面选择框可旋转立方体查看对应面</p>
+                    <p class="text-xs text-gray-500 mt-1">或用手指拖动立方体旋转</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <footer class="bg-gray-100 py-4 mt-8 border-t border-gray-200">
+        <div class="container mx-auto px-4 text-center text-gray-600">
+            <p>&copy; 2026 箱体计算器 | 创作者：小强</p>
+        </div>
+    </footer>
+
+    <script>
+        // 获取DOM元素
+        const lengthInput = document.getElementById('length');
+        const widthInput = document.getElementById('width');
+        const heightInput = document.getElementById('height');
+        const calculateBtn = document.getElementById('calculate-btn');
+        const facesContainer = document.getElementById('faces-container');
+        const totalAreaElement = document.getElementById('total-area');
+        const allFacesAreaElement = document.getElementById('all-faces-area');
+        const cube = document.getElementById('cube');
+        
+        // 旋转控制变量
+        let isDragging = false;
+        let startX, startY;
+        let currentRotationX = -15;
+        let currentRotationY = 25;
+        let targetRotationX = currentRotationX;
+        let targetRotationY = currentRotationY;
+        
+        // 面信息配置
+        const faces = [
+            { id: 1, name: '面1(前)', formula: (l, w, h) => l * h, dimensions: (l, w, h) => ({side1: l, side2: h, label1: '长', label2: '高'}), rotation: 'rotateY(0deg)' },
+            { id: 2, name: '面2(后)', formula: (l, w, h) => l * h, dimensions: (l, w, h) => ({side1: l, side2: h, label1: '长', label2: '高'}), rotation: 'rotateY(180deg)' },
+            { id: 3, name: '面3(右)', formula: (l, w, h) => w * h, dimensions: (l, w, h) => ({side1: w, side2: h, label1: '宽', label2: '高'}), rotation: 'rotateY(-90deg)' },
+            { id: 4, name: '面4(左)', formula: (l, w, h) => w * h, dimensions: (l, w, h) => ({side1: w, side2: h, label1: '宽', label2: '高'}), rotation: 'rotateY(90deg)' },
+            { id: 5, name: '面5(顶)', formula: (l, w, h) => l * w, dimensions: (l, w, h) => ({side1: l, side2: w, label1: '长', label2: '宽'}), rotation: 'rotateX(-90deg)' },
+            { id: 6, name: '面6(底)', formula: (l, w, h) => l * w, dimensions: (l, w, h) => ({side1: l, side2: w, label1: '长', label2: '宽'}), rotation: 'rotateX(90deg)' }
+        ];
+        
+        // 初始化面选择框
+        function initializeFaces() {
+            facesContainer.innerHTML = '';
+            
+            faces.forEach(face => {
+                const faceItem = document.createElement('div');
+                faceItem.className = 'face-item';
+                faceItem.innerHTML = `
+                    <input type="checkbox" id="face-${face.id}" data-face-id="${face.id}">
+                    <span class="face-name">${face.name}</span>
+                    <span class="ml-auto face-area" id="area-${face.id}">0.00 cm²</span>
+                `;
+                facesContainer.appendChild(faceItem);
+                
+                // 添加点击事件
+                const checkbox = faceItem.querySelector(`#face-${face.id}`);
+                checkbox.addEventListener('change', function() {
+                    const faceId = parseInt(this.dataset.faceId);
+                    const faceElement = document.querySelector(`.face-${faceId}`);
+                    
+                    if (this.checked) {
+                        faceElement.classList.add('selected');
+                        // 旋转到对应面
+                        cube.style.transform = face.rotation;
+                        
+                        // 更新当前旋转角度
+                        if (face.rotation.includes('rotateX')) {
+                            if (face.rotation.includes('90deg')) {
+                                targetRotationX = 90;
+                                targetRotationY = 0;
+                            } else if (face.rotation.includes('-90deg')) {
+                                targetRotationX = -90;
+                                targetRotationY = 0;
+                            }
+                        } else {
+                            targetRotationX = 0;
+                            if (face.rotation.includes('rotateY(90deg)')) {
+                                targetRotationY = 90;
+                            } else if (face.rotation.includes('rotateY(-90deg)')) {
+                                targetRotationY = -90;
+                            } else if (face.rotation.includes('rotateY(180deg)')) {
+                                targetRotationY = 180;
+                            } else {
+                                targetRotationY = 0;
+                            }
+                        }
+                        
+                        currentRotationX = targetRotationX;
+                        currentRotationY = targetRotationY;
+                    } else {
+                        faceElement.classList.remove('selected');
+                    }
+                    
+                    updateTotalArea();
+                });
+            });
+        }
+        
+        // 计算面积并更新立方体尺寸
+        function calculateAreas() {
+            const length = parseFloat(lengthInput.value) || 0;
+            const width = parseFloat(widthInput.value) || 0;
+            const height = parseFloat(heightInput.value) || 0;
+            
+            let totalArea = 0;
+            let allFacesTotalArea = 0;
+            
+            // 计算比例因子，确保立方体在容器内合适大小
+            const maxDimension = Math.max(length, width, height);
+            const scaleFactor = maxDimension > 0 ? 180 / maxDimension : 1; // 180px是考虑边框后的最大尺寸
+            
+            // 更新立方体尺寸
+            updateCubeDimensions(length * scaleFactor, width * scaleFactor, height * scaleFactor);
+            
+            faces.forEach(face => {
+                const area = face.formula(length, width, height);
+                const areaElement = document.getElementById(`area-${face.id}`);
+                areaElement.textContent = `${area.toFixed(2)} cm²`;
+                
+                // 更新面上显示的面积和尺寸
+                const faceAreaElement = document.getElementById(`face${face.id}-area`);
+                const faceDimsElement = document.getElementById(`face${face.id}-dims`);
+                const dims = face.dimensions(length, width, height);
+                
+                faceAreaElement.textContent = `${area.toFixed(2)} cm²`;
+                faceDimsElement.innerHTML = `${dims.label1}: ${dims.side1.toFixed(2)}mm<br>${dims.label2}: ${dims.side2.toFixed(2)}mm`;
+                
+                allFacesTotalArea += area;
+                
+                const checkbox = document.getElementById(`face-${face.id}`);
+                if (checkbox.checked) {
+                    totalArea += area;
+                }
+            });
+            
+            totalAreaElement.textContent = `${totalArea.toFixed(2)} cm²`;
+            allFacesAreaElement.textContent = `${allFacesTotalArea.toFixed(2)} cm²`;
+        }
+        
+        // 更新立方体尺寸
+        function updateCubeDimensions(length, width, height) {
+            const faces = document.querySelectorAll('.face');
+            
+            // 计算中心点偏移
+            const centerX = length / 2;
+            const centerY = height / 2;
+            const centerZ = width / 2;
+            
+            // 更新每个面的尺寸和位置
+            document.querySelector('.face-1').style.cssText = `width: ${length}px; height: ${height}px; transform: translateZ(${centerZ}px) translateX(${(200 - length) / 2}px) translateY(${(200 - height) / 2}px);`;
+            document.querySelector('.face-2').style.cssText = `width: ${length}px; height: ${height}px; transform: rotateY(180deg) translateZ(${centerZ}px) translateX(${(200 - length) / 2}px) translateY(${(200 - height) / 2}px);`;
+            document.querySelector('.face-3').style.cssText = `width: ${width}px; height: ${height}px; transform: rotateY(90deg) translateZ(${centerX}px) translateX(${(200 - width) / 2}px) translateY(${(200 - height) / 2}px);`;
+            document.querySelector('.face-4').style.cssText = `width: ${width}px; height: ${height}px; transform: rotateY(-90deg) translateZ(${centerX}px) translateX(${(200 - width) / 2}px) translateY(${(200 - height) / 2}px);`;
+            document.querySelector('.face-5').style.cssText = `width: ${length}px; height: ${width}px; transform: rotateX(90deg) translateZ(${centerY}px) translateX(${(200 - length) / 2}px) translateY(${(200 - width) / 2}px);`;
+            document.querySelector('.face-6').style.cssText = `width: ${length}px; height: ${width}px; transform: rotateX(-90deg) translateZ(${centerY}px) translateX(${(200 - length) / 2}px) translateY(${(200 - width) / 2}px);`;
+        }
+        
+        // 更新总面积
+        function updateTotalArea() {
+            const length = parseFloat(lengthInput.value) || 0;
+            const width = parseFloat(widthInput.value) || 0;
+            const height = parseFloat(heightInput.value) || 0;
+            
+            let totalArea = 0;
+            
+            faces.forEach(face => {
+                const checkbox = document.getElementById(`face-${face.id}`);
+                if (checkbox.checked) {
+                    const area = face.formula(length, width, height);
+                    totalArea += area;
+                }
+            });
+            
+            totalAreaElement.textContent = `${totalArea.toFixed(2)} cm²`;
+        }
+        
+        // 添加输入验证
+        function validateInput(input) {
+            input.addEventListener('input', function() {
+                // 只允许正数和小数点
+                this.value = this.value.replace(/[^\d.]/g, '');
+                
+                // 确保只有一个小数点
+                const parts = this.value.split('.');
+                if (parts.length > 2) {
+                    this.value = parts[0] + '.' + parts.slice(1).join('');
+                }
+                
+                // 限制小数位数为2位
+                if (parts.length === 2 && parts[1].length > 2) {
+                    this.value = parts[0] + '.' + parts[1].substring(0, 2);
+                }
+            });
+        }
+        
+        // 为输入框添加验证
+        validateInput(lengthInput);
+        validateInput(widthInput);
+        validateInput(heightInput);
+        
+        // 计算按钮点击事件
+        calculateBtn.addEventListener('click', function() {
+            calculateAreas();
+            
+            // 添加按钮动画效果
+            this.classList.add('bg-accent');
+            setTimeout(() => {
+                this.classList.remove('bg-accent');
+            }, 200);
+        });
+        
+        // 输入框变化时自动计算
+        [lengthInput, widthInput, heightInput].forEach(input => {
+            input.addEventListener('input', function() {
+                if (lengthInput.value && widthInput.value && heightInput.value) {
+                    calculateAreas();
+                }
+            });
+        });
+        
+        // 添加立方体拖拽旋转功能
+        function setupCubeRotation() {
+            cube.addEventListener('mousedown', startDrag);
+            document.addEventListener('mousemove', drag);
+            document.addEventListener('mouseup', endDrag);
+            
+            // 触摸设备支持
+            cube.addEventListener('touchstart', handleTouchStart, { passive: false });
+            document.addEventListener('touchmove', handleTouchMove, { passive: false });
+            document.addEventListener('touchend', handleTouchEnd);
+        }
+        
+        function startDrag(e) {
+            isDragging = true;
+            startX = e.clientX;
+            startY = e.clientY;
+            cube.style.transition = 'none';
+        }
+        
+        function drag(e) {
+            if (!isDragging) return;
+            
+            const deltaX = e.clientX - startX;
+            const deltaY = e.clientY - startY;
+            
+            targetRotationY = currentRotationY + deltaX * 0.5;
+            targetRotationX = currentRotationX - deltaY * 0.5;
+            
+            cube.style.transform = `rotateX(${targetRotationX}deg) rotateY(${targetRotationY}deg)`;
+        }
+        
+        function endDrag() {
+            if (isDragging) {
+                isDragging = false;
+                currentRotationX = targetRotationX;
+                currentRotationY = targetRotationY;
+                cube.style.transition = 'transform 0.5s ease';
+            }
+        }
+        
+        function handleTouchStart(e) {
+            e.preventDefault();
+            const touch = e.touches[0];
+            const mouseEvent = {
+                clientX: touch.clientX,
+                clientY: touch.clientY
+            };
+            startDrag(mouseEvent);
+        }
+        
+        function handleTouchMove(e) {
+            e.preventDefault();
+            if (!isDragging) return;
+            
+            const touch = e.touches[0];
+            const mouseEvent = {
+                clientX: touch.clientX,
+                clientY: touch.clientY
+            };
+            drag(mouseEvent);
+        }
+        
+        function handleTouchEnd() {
+            endDrag();
+        }
+        
+        // 初始化页面
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeFaces();
+            
+            // 添加示例数据
+            lengthInput.value = 10;
+            widthInput.value = 8;
+            heightInput.value = 6;
+            calculateAreas();
+            
+            // 设置立方体旋转功能
+            setupCubeRotation();
+        });
+    </script>
+</body>
 </html>
