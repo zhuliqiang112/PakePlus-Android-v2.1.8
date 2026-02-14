@@ -1,11 +1,446 @@
 <!DOCTYPE html>
-<html lang="en">
-    <head>
-        <meta charset="UTF-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <title>PakePlus</title>
-    </head>
-    <body>
-        PakePlus
-    </body>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<title>料箱计算器 最终版</title>
+<style>
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  font-family: "Microsoft YaHei", sans-serif;
+  font-size: 0.5em; /* 字号整体缩小1倍 */
+}
+
+body {
+  background: #f5f7fa;
+  padding: 10px 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  height: auto;
+  min-height: 100vh;
+}
+
+.container {
+  width: 96%;
+  margin: 0 auto;
+  background: white;
+  padding: 15px;
+  border-radius: 12px;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+  margin-bottom: 20px;
+}
+
+.title {
+  text-align: center;
+  font-size: 9px;
+  font-weight: bold;
+  margin-bottom: 15px;
+  color: #333;
+}
+
+.input-group {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+
+.input-box {
+  flex: 1;
+  min-width: 80px;
+}
+
+.input-box label {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 6.5px;
+}
+
+.input-box input {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 8px;
+}
+
+.btn {
+  width: 100%;
+  padding: 11px;
+  background: #2a75f3;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 8px;
+}
+
+.face-list {
+  margin: 15px 0;
+  max-height: none;
+  overflow: visible;
+}
+
+.face-item {
+  display: flex;
+  align-items: center;
+  padding: 12px 10px;
+  border: 1px solid #eee;
+  border-radius: 6px;
+  margin-bottom: 8px;
+  touch-action: manipulation;
+}
+
+.face-item input {
+  width: 11px;
+  height: 11px;
+  margin-right: 12px;
+}
+
+.face-item label {
+  flex: 1;
+  font-size: 7.5px;
+  line-height: 1.4;
+}
+
+.total-box {
+  padding: 15px 12px;
+  background: #f0f7ff;
+  border-radius: 8px;
+  text-align: center;
+  font-size: 8px;
+  margin: 15px 0;
+}
+
+/* 3D容器：强制居中 */
+.cube-box {
+  width: 100%;
+  height: 175px;
+  position: relative;
+  perspective: 750px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 20px auto;
+  touch-action: pan-x pan-y;
+}
+
+/* 长方体容器：固定居中 */
+.cube {
+  position: relative;
+  transform-style: preserve-3d;
+  transition: transform 0.5s ease-out;
+  transform-origin: center center;
+}
+
+/* 每个面独立定义，杜绝错位 */
+.face {
+  position: absolute;
+  background: #d7e3fc;
+  border: 1px solid #2a75f3;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  font-size: 6.5px;
+  font-weight: bold;
+  color: #000;
+  backface-visibility: hidden;
+  text-align: center;
+  line-height: 1.3;
+  padding: 2px;
+}
+
+/* 不同面区分颜色 */
+.face1 { background: #d7e3fc; }
+.face2 { background: #c5d8fc; }
+.face3 { background: #b4cdfc; }
+.face4 { background: #a2c2fc; }
+.face5 { background: #91b7fc; }
+.face6 { background: #7fabfc; }
+
+.copyright {
+  text-align: center;
+  font-size: 6px;
+  color: #888;
+  margin: 20px 0 30px 0;
+  padding-bottom: 20px;
+}
+
+*:active {
+  -webkit-tap-highlight-color: transparent;
+}
+</style>
+</head>
+
+<body>
+<div class="container">
+  <div class="title">料箱计算器（mm → ㎡）</div>
+
+  <div class="input-group">
+    <div class="input-box">
+      <label>长 (mm)</label>
+      <input type="number" id="length" value="1200">
+    </div>
+    <div class="input-box">
+      <label>宽 (mm)</label>
+      <input type="number" id="width" value="800">
+    </div>
+    <div class="input-box">
+      <label>高 (mm)</label>
+      <input type="number" id="height" value="600">
+    </div>
+  </div>
+
+  <button class="btn" onclick="calc()">计算面积</button>
+
+  <div class="face-list">
+    <div class="face-item">
+      <input type="checkbox" id="f1" onchange="selectFace(1)">
+      <label for="f1">面1（前）：长×高 = <span id="a1">0</span> ㎡</label>
+    </div>
+    <div class="face-item">
+      <input type="checkbox" id="f2" onchange="selectFace(2)">
+      <label for="f2">面2（后）：长×高 = <span id="a2">0</span> ㎡</label>
+    </div>
+    <div class="face-item">
+      <input type="checkbox" id="f3" onchange="selectFace(3)">
+      <label for="f3">面3（左）：宽×高 = <span id="a3">0</span> ㎡</label>
+    </div>
+    <div class="face-item">
+      <input type="checkbox" id="f4" onchange="selectFace(4)">
+      <label for="f4">面4（右）：宽×高 = <span id="a4">0</span> ㎡</label>
+    </div>
+    <div class="face-item">
+      <input type="checkbox" id="f5" onchange="selectFace(5)">
+      <label for="f5">面5（上）：长×宽 = <span id="a5">0</span> ㎡</label>
+    </div>
+    <div class="face-item">
+      <input type="checkbox" id="f6" onchange="selectFace(6)">
+      <label for="f6">面6（下）：长×宽 = <span id="a6">0</span> ㎡</label>
+    </div>
+  </div>
+
+  <div class="total-box">
+    已选总面积：<span id="total">0</span> ㎡
+  </div>
+
+  <div class="cube-box">
+    <div class="cube" id="cube">
+      <div class="face face1" id="show1"></div>
+      <div class="face face2" id="show2"></div>
+      <div class="face face3" id="show3"></div>
+      <div class="face face4" id="show4"></div>
+      <div class="face face5" id="show5"></div>
+      <div class="face face6" id="show6"></div>
+    </div>
+  </div>
+
+  <div class="copyright">
+    @2026 料箱计算器 @专业版
+  </div>
+</div>
+
+<script>
+let L = 1200, W = 800, H = 600;
+let currentRotate = { x: 0, y: 0 };
+let startX, startY;
+
+// 核心计算：mm转㎡（1㎡ = 1000×1000 mm² = 1e6 mm²）
+function calc() {
+  L = Number(document.getElementById('length').value) || 0;
+  W = Number(document.getElementById('width').value) || 0;
+  H = Number(document.getElementById('height').value) || 0;
+
+  // 面积计算（÷1e6）
+  const area1 = (L * H / 1000000).toFixed(3); // 长×高
+  const area3 = (W * H / 1000000).toFixed(3); // 宽×高
+  const area5 = (L * W / 1000000).toFixed(3); // 长×宽
+
+  // 更新列表显示
+  document.getElementById('a1').innerText = area1;
+  document.getElementById('a2').innerText = area1;
+  document.getElementById('a3').innerText = area3;
+  document.getElementById('a4').innerText = area3;
+  document.getElementById('a5').innerText = area5;
+  document.getElementById('a6').innerText = area5;
+
+  // ========== 核心修改：每个面完整显示「数值mm × 数值mm = 结果㎡」 ==========
+  document.getElementById('show1').innerHTML = `面1（前）<br>${L}mm × ${H}mm = ${area1}㎡`;
+  document.getElementById('show2').innerHTML = `面2（后）<br>${L}mm × ${H}mm = ${area1}㎡`;
+  document.getElementById('show3').innerHTML = `面3（左）<br>${W}mm × ${H}mm = ${area3}㎡`;
+  document.getElementById('show4').innerHTML = `面4（右）<br>${W}mm × ${H}mm = ${area3}㎡`;
+  document.getElementById('show5').innerHTML = `面5（上）<br>${L}mm × ${W}mm = ${area5}㎡`;
+  document.getElementById('show6').innerHTML = `面6（下）<br>${L}mm × ${W}mm = ${area5}㎡`;
+
+  updateTotal();
+  renderCube(); // 重新渲染长方体
+}
+
+// 更新选中总面积
+function updateTotal() {
+  let total = 0;
+  const area1 = L * H / 1000000;
+  const area3 = W * H / 1000000;
+  const area5 = L * W / 1000000;
+
+  if (document.getElementById('f1').checked) total += area1;
+  if (document.getElementById('f2').checked) total += area1;
+  if (document.getElementById('f3').checked) total += area3;
+  if (document.getElementById('f4').checked) total += area3;
+  if (document.getElementById('f5').checked) total += area5;
+  if (document.getElementById('f6').checked) total += area5;
+  
+  document.getElementById('total').innerText = total.toFixed(3);
+}
+
+// 3D长方体渲染逻辑（精准匹配面3/4）
+function renderCube() {
+  const cube = document.getElementById('cube');
+  const maxSize = Math.max(L, W, H) || 1;
+  const scaleRatio = 110 / maxSize; // 缩小1倍后的缩放比例
+
+  // 实际显示尺寸（按比例）
+  const length = L * scaleRatio;  // 长
+  const width = W * scaleRatio;   // 宽
+  const height = H * scaleRatio;  // 高
+
+  // 逐个定义每个面的位置（100%精准）
+  const face1 = document.querySelector('.face1');
+  const face2 = document.querySelector('.face2');
+  const face3 = document.querySelector('.face3');
+  const face4 = document.querySelector('.face4');
+  const face5 = document.querySelector('.face5');
+  const face6 = document.querySelector('.face6');
+
+  // 面1（前）：朝Z轴正方向
+  face1.style.width = `${length}px`;
+  face1.style.height = `${height}px`;
+  face1.style.transform = `rotateY(0deg) translateZ(${width/2}px)`;
+
+  // 面2（后）：朝Z轴负方向
+  face2.style.width = `${length}px`;
+  face2.style.height = `${height}px`;
+  face2.style.transform = `rotateY(180deg) translateZ(${width/2}px)`;
+
+  // 面3（左）：朝X轴负方向（精准匹配）
+  face3.style.width = `${width}px`;
+  face3.style.height = `${height}px`;
+  face3.style.transform = `rotateY(-90deg) translateZ(${length/2}px)`;
+
+  // 面4（右）：朝X轴正方向（精准匹配）
+  face4.style.width = `${width}px`;
+  face4.style.height = `${height}px`;
+  face4.style.transform = `rotateY(90deg) translateZ(${length/2}px)`;
+
+  // 面5（上）：朝Y轴正方向
+  face5.style.width = `${length}px`;
+  face5.style.height = `${width}px`;
+  face5.style.transform = `rotateX(90deg) translateZ(${height/2}px)`;
+
+  // 面6（下）：朝Y轴负方向
+  face6.style.width = `${length}px`;
+  face6.style.height = `${width}px`;
+  face6.style.transform = `rotateX(-90deg) translateZ(${height/2}px)`;
+
+  // 保持居中旋转
+  cube.style.transform = `rotateX(${currentRotate.x}deg) rotateY(${currentRotate.y}deg)`;
+}
+
+// 精准控制每个面的显示（彻底解决面3/4错位）
+function selectFace(faceNum) {
+  const cube = document.getElementById('cube');
+  updateTotal();
+
+  // 重置旋转角度，精准对准对应面
+  switch(faceNum) {
+    case 1: // 面1（前）
+      currentRotate = { x: 0, y: 0 };
+      cube.style.transform = 'rotateX(0deg) rotateY(0deg)';
+      break;
+    case 2: // 面2（后）
+      currentRotate = { x: 0, y: 180 };
+      cube.style.transform = 'rotateX(0deg) rotateY(180deg)';
+      break;
+    case 3: // 面3（左）- 精准匹配
+      currentRotate = { x: 0, y: 90 };
+      cube.style.transform = 'rotateX(0deg) rotateY(90deg)';
+      break;
+    case 4: // 面4（右）- 精准匹配
+      currentRotate = { x: 0, y: -90 };
+      cube.style.transform = 'rotateX(0deg) rotateY(-90deg)';
+      break;
+    case 5: // 面5（上）
+      currentRotate = { x: -90, y: 0 };
+      cube.style.transform = 'rotateX(-90deg) rotateY(0deg)';
+      break;
+    case 6: // 面6（下）
+      currentRotate = { x: 90, y: 0 };
+      cube.style.transform = 'rotateX(90deg) rotateY(0deg)';
+      break;
+  }
+}
+
+// 拖拽旋转功能（保留居中）
+function initDrag() {
+  const cube = document.getElementById('cube');
+  const cubeBox = document.querySelector('.cube-box');
+
+  // 移动端触摸
+  cubeBox.addEventListener('touchstart', (e) => {
+    startX = e.touches[0].clientX;
+    startY = e.touches[0].clientY;
+  });
+
+  cubeBox.addEventListener('touchmove', (e) => {
+    e.preventDefault();
+    const dx = e.touches[0].clientX - startX;
+    const dy = e.touches[0].clientY - startY;
+    
+    currentRotate.y += dx * 0.5;
+    currentRotate.x -= dy * 0.5;
+    
+    cube.style.transform = `rotateX(${currentRotate.x}deg) rotateY(${currentRotate.y}deg)`;
+    startX = e.touches[0].clientX;
+    startY = e.touches[0].clientY;
+  });
+
+  // 电脑端鼠标
+  cubeBox.addEventListener('mousedown', (e) => {
+    startX = e.clientX;
+    startY = e.clientY;
+    document.addEventListener('mousemove', mouseMoveHandler);
+  });
+
+  document.addEventListener('mouseup', () => {
+    document.removeEventListener('mousemove', mouseMoveHandler);
+  });
+
+  function mouseMoveHandler(e) {
+    const dx = e.clientX - startX;
+    const dy = e.clientY - startY;
+    
+    currentRotate.y += dx * 0.5;
+    currentRotate.x -= dy * 0.5;
+    
+    cube.style.transform = `rotateX(${currentRotate.x}deg) rotateY(${currentRotate.y}deg)`;
+    startX = e.clientX;
+    startY = e.clientY;
+  }
+}
+
+// 页面初始化
+window.onload = () => {
+  calc();
+  initDrag();
+  setTimeout(() => renderCube(), 200);
+};
+
+// 窗口大小变化时重新渲染
+window.addEventListener('resize', renderCube);
+</script>
+</body>
 </html>
