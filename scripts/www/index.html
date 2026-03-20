@@ -1,11 +1,5315 @@
 <!DOCTYPE html>
-<html lang="en">
-    <head>
-        <meta charset="UTF-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <title>PakePlus</title>
-    </head>
-    <body>
-        PakePlus
-    </body>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>库存管理系统</title>
+  <!-- Tailwind CSS v3 -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Font Awesome -->
+  <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+  <!-- 引入QuaggaJS库用于扫码 -->
+  <script src="https://cdn.jsdelivr.net/npm/quagga@0.12.1/dist/quagga.min.js"></script>
+  <!-- 引入ZXing库用于条码识别 -->
+  <script src="https://cdn.jsdelivr.net/npm/@zxing/library@0.20.0/umd/index.min.js"></script>
+  <!-- 统一的 Tailwind 配置 -->
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            primary: '#2563eb', // 商务蓝
+            secondary: '#3b82f6',
+            accent: '#f97316', // 对比色橙色
+            success: '#10b981',
+            warning: '#f59e0b',
+            danger: '#ef4444',
+            light: '#f3f4f6',
+            dark: '#1f2937'
+          },
+          fontFamily: {
+            sans: ['Inter', 'system-ui', 'sans-serif'],
+          }
+        }
+      }
+    }
+  </script>
+  <style type="text/tailwindcss">
+    @layer utilities {
+      .content-auto {
+        content-visibility: auto;
+      }
+      .no-scrollbar::-webkit-scrollbar {
+        display: none;
+      }
+      .no-scrollbar {
+        -ms-overflow-style: none;
+        scrollbar-width: none;
+      }
+      .text-shadow {
+        text-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      }
+      .card-shadow {
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+      }
+    }
+  </style>
+  <style>
+    /* 自定义样式 */
+    body {
+      font-family: 'Inter', system-ui, sans-serif;
+      -webkit-tap-highlight-color: transparent;
+    }
+    
+    .page {
+      display: none;
+      min-height: calc(100vh - 60px);
+      padding-bottom: 70px;
+    }
+    
+    .page.active {
+      display: block;
+    }
+    
+    .nav-item {
+      transition: all 0.3s ease;
+    }
+    
+    .nav-item.active {
+      color: #2563eb;
+    }
+    
+    .nav-item.active i {
+      transform: scale(1.2);
+    }
+    
+    /* 淡入动画 */
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    
+    .fade-in {
+      animation: fadeIn 0.3s ease forwards;
+    }
+    
+    /* 滑动动画 */
+    @keyframes slideIn {
+      from { transform: translateX(100%); }
+      to { transform: translateX(0); }
+    }
+    
+    .slide-in {
+      animation: slideIn 0.3s ease forwards;
+    }
+    
+    /* 脉冲动画 */
+    @keyframes pulse {
+      0% { transform: scale(1); }
+      50% { transform: scale(1.05); }
+      100% { transform: scale(1); }
+    }
+    
+    .pulse {
+      animation: pulse 2s infinite;
+    }
+    
+    /* 库存状态颜色 */
+    .stock-normal { color: #10b981; }
+    .stock-warning { color: #f59e0b; }
+    .stock-danger { color: #ef4444; }
+    
+    /* 预警通知样式 */
+    .alert-badge {
+      position: absolute;
+      top: -5px;
+      right: -5px;
+      background: linear-gradient(135deg, #ef4444, #dc2626);
+      color: white;
+      border-radius: 50%;
+      width: 20px;
+      height: 20px;
+      font-size: 11px;
+      font-weight: bold;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 2px 4px rgba(239, 68, 68, 0.4);
+      animation: pulse 2s infinite;
+    }
+    
+    /* 预警铃铛图标动画 */
+    .alert-bell-ringing {
+      animation: bellRing 0.5s ease-in-out infinite;
+    }
+    
+    @keyframes bellRing {
+      0%, 100% { transform: rotate(0deg); }
+      25% { transform: rotate(15deg); }
+      75% { transform: rotate(-15deg); }
+    }
+    
+    /* 明细页面样式 */
+    .detail-page {
+      background-color: #f9fafb;
+      min-height: 100vh;
+      padding: 16px;
+    }
+    
+    .detail-header {
+      background-color: white;
+      padding: 16px;
+      border-radius: 8px;
+      margin-bottom: 16px;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    }
+    
+    .detail-content {
+      background-color: white;
+      padding: 16px;
+      border-radius: 8px;
+      margin-bottom: 16px;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    }
+    
+    .detail-footer {
+      background-color: white;
+      padding: 16px;
+      border-radius: 8px;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    }
+    
+    .detail-item {
+      border-bottom: 1px solid #e5e7eb;
+      padding: 12px 0;
+    }
+    
+    .detail-item:last-child {
+      border-bottom: none;
+    }
+    
+    /* 扫码相关样式 */
+    #scan-modal {
+      z-index: 100;
+    }
+    
+    #scan-container {
+      position: relative;
+      width: 100%;
+      height: 70vh;
+    }
+    
+    .scan-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      border: 100px solid rgba(0,0,0,0.7);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    
+    .scan-line {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 2px;
+      background-color: #2563eb;
+      animation: scan 2s linear infinite;
+    }
+    
+    @keyframes scan {
+      0% { top: 0; }
+      100% { top: 100%; }
+    }
+    
+    /* 库存预警弹窗样式 */
+    #stock-alert-modal {
+      z-index: 9999;
+    }
+    
+    .alert-item {
+      border-bottom: 1px solid #e5e7eb;
+      padding: 8px 0;
+    }
+    
+    .alert-item:last-child {
+      border-bottom: none;
+    }
+  </style>
+</head>
+<body class="bg-gray-50 text-gray-800">
+  <!-- 顶部工具栏 -->
+  <div class="fixed top-0 left-0 right-0 bg-white border-b border-gray-200 flex justify-between items-center h-14 px-4 z-40">
+    <h1 class="text-lg font-bold text-primary" id="top-bar-title">库存管理系统</h1>
+    <div class="flex items-center space-x-3">
+      <button id="alert-bell-btn" onclick="showAlertList()" class="relative p-2">
+        <i class="fa fa-bell text-xl text-gray-600"></i>
+        <span id="top-alert-badge" class="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center hidden">0</span>
+      </button>
+    </div>
+  </div>
+  
+  <!-- 顶部占位 -->
+  <div class="h-14"></div>
+  
+  <!-- 页面容器 -->
+  <div class="container mx-auto px-4 pb-16">
+    <!-- 首页/库存概览 -->
+    <div id="home-page" class="page active">
+      <header class="py-4 flex justify-between items-center">
+        <h1 class="text-2xl font-bold text-primary">库存概览</h1>
+        <button id="scan-btn" onclick="openScanModal('home')" class="bg-accent text-white px-4 py-2 rounded-full flex items-center">
+          <i class="fa fa-qrcode mr-2"></i> 扫码
+        </button>
+      </header>
+      
+      <!-- 统计卡片 -->
+      <div class="grid grid-cols-2 gap-4 mb-6">
+        <div class="bg-white rounded-lg p-4 card-shadow">
+          <div class="flex items-center justify-between">
+            <div>
+              <h3 class="text-sm text-gray-500 mb-1">产品总数</h3>
+              <p class="text-2xl font-bold text-primary" id="total-products">0</p>
+            </div>
+            <div class="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
+              <i class="fa fa-cubes text-primary"></i>
+            </div>
+          </div>
+        </div>
+        <div class="bg-white rounded-lg p-4 card-shadow relative">
+          <div class="flex items-center justify-between">
+            <div>
+              <h3 class="text-sm text-gray-500 mb-1">库存预警</h3>
+              <p class="text-2xl font-bold text-warning" id="stock-alerts">0</p>
+            </div>
+            <div class="w-10 h-10 rounded-full bg-yellow-100 flex items-center justify-center">
+              <i class="fa fa-exclamation-triangle text-warning"></i>
+            </div>
+          </div>
+          <span id="alert-badge" class="alert-badge hidden">!</span>
+        </div>
+        <div class="bg-white rounded-lg p-4 card-shadow">
+          <div class="flex items-center justify-between">
+            <div>
+              <h3 class="text-sm text-gray-500 mb-1">今日入库</h3>
+              <p class="text-2xl font-bold text-success" id="today-inbound">0</p>
+            </div>
+            <div class="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center">
+              <i class="fa fa-arrow-down text-success"></i>
+            </div>
+          </div>
+        </div>
+        <div class="bg-white rounded-lg p-4 card-shadow">
+          <div class="flex items-center justify-between">
+            <div>
+              <h3 class="text-sm text-gray-500 mb-1">今日出库</h3>
+              <p class="text-2xl font-bold text-danger" id="today-outbound">0</p>
+            </div>
+            <div class="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center">
+              <i class="fa fa-arrow-up text-danger"></i>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- 库存状态概览 -->
+      <div class="bg-white rounded-lg p-4 card-shadow">
+        <h2 class="text-lg font-semibold mb-4">库存状态概览</h2>
+        <div id="stock-overview" class="space-y-3">
+          <!-- 库存状态将通过JS动态生成 -->
+        </div>
+      </div>
+    </div>
+    
+    <!-- 入库管理页面 -->
+    <div id="inbound-page" class="page">
+      <header class="py-4 flex justify-between items-center">
+        <h1 class="text-2xl font-bold text-primary">入库管理</h1>
+        <button id="scan-inbound-btn" class="bg-accent text-white px-4 py-2 rounded-full flex items-center">
+          <i class="fa fa-qrcode mr-2"></i> 扫码入库
+        </button>
+      </header>
+      
+      <!-- 入库表单 -->
+      <div class="bg-white rounded-lg p-4 mb-6 card-shadow">
+        <h2 class="text-lg font-semibold mb-4">新增入库</h2>
+        <form id="inbound-form" class="space-y-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">单据编号</label>
+            <input type="text" id="inbound-code" class="w-full px-3 py-2 border border-gray-300 rounded-md" readonly>
+          </div>
+          
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">入库日期</label>
+            <input type="date" id="inbound-date" class="w-full px-3 py-2 border border-gray-300 rounded-md">
+          </div>
+          
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">供应商</label>
+            <select id="inbound-supplier" class="w-full px-3 py-2 border border-gray-300 rounded-md">
+              <option value="">请选择供应商</option>
+              <!-- 供应商选项将通过JS动态生成 -->
+            </select>
+            <div class="mt-1 text-right">
+              <button type="button" onclick="showAddSupplierModal()" class="text-primary text-sm">添加供应商</button>
+            </div>
+          </div>
+          
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">产品编码</label>
+            <div class="flex gap-2">
+              <input type="text" id="inbound-product-code" class="flex-1 px-3 py-2 border border-gray-300 rounded-md" placeholder="扫描或输入产品编码">
+              <button type="button" onclick="openScanModal('inbound')" class="px-3 py-2 bg-primary text-white rounded-md">
+                <i class="fa fa-qrcode"></i>
+              </button>
+            </div>
+          </div>
+          
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">产品名称</label>
+            <input type="text" id="inbound-product-name" class="w-full px-3 py-2 border border-gray-300 rounded-md" readonly>
+          </div>
+          
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">规格型号</label>
+            <input type="text" id="inbound-product-spec" class="w-full px-3 py-2 border border-gray-300 rounded-md" readonly>
+          </div>
+          
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">数量</label>
+              <input type="number" id="inbound-quantity" class="w-full px-3 py-2 border border-gray-300 rounded-md" min="0" step="0.01">
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">单位</label>
+              <select id="inbound-unit" class="w-full px-3 py-2 border border-gray-300 rounded-md">
+                <option value="">请选择单位</option>
+                <!-- 单位选项将通过JS动态生成 -->
+              </select>
+            </div>
+          </div>
+          
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">单价</label>
+            <input type="number" id="inbound-price" class="w-full px-3 py-2 border border-gray-300 rounded-md" min="0" step="0.01">
+          </div>
+          
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">备注</label>
+            <textarea id="inbound-remarks" class="w-full px-3 py-2 border border-gray-300 rounded-md" rows="2"></textarea>
+          </div>
+          
+          <button type="button" onclick="submitInbound()" class="w-full bg-primary text-white py-2 rounded-md">提交入库</button>
+        </form>
+      </div>
+    </div>
+    
+    <!-- 出库管理页面 -->
+    <div id="outbound-page" class="page">
+      <header class="py-4 flex justify-between items-center">
+        <h1 class="text-2xl font-bold text-primary">出库管理</h1>
+        <button id="scan-outbound-btn" class="bg-accent text-white px-4 py-2 rounded-full flex items-center">
+          <i class="fa fa-qrcode mr-2"></i> 扫码出库
+        </button>
+      </header>
+      
+      <!-- 出库表单 -->
+      <div class="bg-white rounded-lg p-4 mb-6 card-shadow">
+        <h2 class="text-lg font-semibold mb-4">新增出库</h2>
+        <form id="outbound-form" class="space-y-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">单据编号</label>
+            <input type="text" id="outbound-code" class="w-full px-3 py-2 border border-gray-300 rounded-md" readonly>
+          </div>
+          
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">出库日期</label>
+            <input type="date" id="outbound-date" class="w-full px-3 py-2 border border-gray-300 rounded-md">
+          </div>
+          
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">领用人</label>
+            <select id="outbound-user" class="w-full px-3 py-2 border border-gray-300 rounded-md">
+              <option value="">请选择领用人</option>
+              <!-- 领用人选项将通过JS动态生成 -->
+            </select>
+            <div class="mt-1 text-right">
+              <button type="button" onclick="showAddUserModal()" class="text-primary text-sm">添加领用人</button>
+            </div>
+          </div>
+          
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">产品编码</label>
+            <div class="flex gap-2">
+              <input type="text" id="outbound-product-code" class="flex-1 px-3 py-2 border border-gray-300 rounded-md" placeholder="扫描或输入产品编码">
+              <button type="button" onclick="openScanModal('outbound')" class="px-3 py-2 bg-primary text-white rounded-md">
+                <i class="fa fa-qrcode"></i>
+              </button>
+            </div>
+          </div>
+          
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">产品名称</label>
+            <input type="text" id="outbound-product-name" class="w-full px-3 py-2 border border-gray-300 rounded-md" readonly>
+          </div>
+          
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">规格型号</label>
+            <input type="text" id="outbound-product-spec" class="w-full px-3 py-2 border border-gray-300 rounded-md" readonly>
+          </div>
+          
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">数量</label>
+              <input type="number" id="outbound-quantity" class="w-full px-3 py-2 border border-gray-300 rounded-md" min="0" step="0.01">
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">单位</label>
+              <select id="outbound-unit" class="w-full px-3 py-2 border border-gray-300 rounded-md">
+                <option value="">请选择单位</option>
+                <!-- 单位选项将通过JS动态生成 -->
+              </select>
+            </div>
+          </div>
+          
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">当前库存</label>
+            <input type="text" id="outbound-stock" class="w-full px-3 py-2 border border-gray-300 rounded-md" readonly>
+          </div>
+          
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">备注</label>
+            <textarea id="outbound-remarks" class="w-full px-3 py-2 border border-gray-300 rounded-md" rows="2"></textarea>
+          </div>
+          
+          <button type="button" onclick="submitOutbound()" class="w-full bg-primary text-white py-2 rounded-md">提交出库</button>
+        </form>
+      </div>
+    </div>
+    
+    <!-- 库存查询页面 -->
+    <div id="stock-page" class="page">
+      <header class="py-4 flex justify-between items-center">
+        <h1 class="text-2xl font-bold text-primary">库存查询</h1>
+        <div class="flex items-center space-x-2">
+          <button onclick="openScanModal('stock')" class="p-2 bg-primary text-white rounded-full">
+            <i class="fa fa-qrcode"></i>
+          </button>
+          <div class="relative">
+            <input type="text" id="stock-search" placeholder="搜索产品..." class="px-4 py-2 border border-gray-300 rounded-full text-sm">
+            <i class="fa fa-search absolute right-3 top-3 text-gray-400"></i>
+          </div>
+        </div>
+      </header>
+      
+      <!-- 筛选选项 -->
+      <div class="bg-white rounded-lg p-4 mb-6 card-shadow">
+        <div class="flex flex-wrap gap-2">
+          <button onclick="filterStockByStatus('all')" class="px-3 py-1 bg-primary text-white rounded-full text-sm">全部</button>
+          <button onclick="filterStockByStatus('normal')" class="px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-sm">库存充足</button>
+          <button onclick="filterStockByStatus('warning')" class="px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-sm">库存预警</button>
+          <button onclick="filterStockByStatus('danger')" class="px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-sm">库存不足</button>
+        </div>
+      </div>
+      
+      <!-- 库存列表 -->
+      <div class="bg-white rounded-lg p-4 card-shadow">
+        <div id="stock-list" class="space-y-4">
+          <!-- 库存列表将通过JS动态生成 -->
+          <div class="text-center text-gray-500 py-4">暂无库存数据</div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- 库存预警页面 -->
+    <div id="alert-page" class="page">
+      <header class="py-4 flex justify-between items-center">
+        <h1 class="text-2xl font-bold text-primary">库存预警</h1>
+        <button onclick="navigateTo('home-page')" class="bg-gray-200 text-gray-700 px-4 py-2 rounded-full flex items-center">
+          <i class="fa fa-arrow-left mr-2"></i> 返回
+        </button>
+      </header>
+      
+      <!-- 预警列表 -->
+      <div class="bg-white rounded-lg p-4 card-shadow">
+        <div id="alert-list-page" class="space-y-4">
+          <!-- 预警列表将通过JS动态生成 -->
+          <div class="text-center text-gray-500 py-4">暂无库存预警</div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- 出入库记录页面 -->
+    <div id="history-page" class="page">
+      <div class="bg-primary text-white p-4 shadow-md sticky top-0 z-30">
+        <div class="flex justify-between items-center">
+          <h1 class="text-xl font-bold">出入库记录</h1>
+          <div class="flex space-x-2">
+            <button onclick="navigateTo('home-page')" class="bg-white bg-opacity-20 p-2 rounded-full">
+              <i class="fa fa-home"></i>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 筛选区域 -->
+      <div class="p-4 bg-white mb-2">
+        <div class="flex space-x-2 mb-3">
+          <button onclick="filterHistory('all')" class="flex-1 py-2 px-4 bg-primary text-white rounded-md text-sm">全部</button>
+          <button onclick="filterHistory('inbound')" class="flex-1 py-2 px-4 bg-gray-200 text-gray-700 rounded-md text-sm">入库记录</button>
+          <button onclick="filterHistory('outbound')" class="flex-1 py-2 px-4 bg-gray-200 text-gray-700 rounded-md text-sm">出库记录</button>
+        </div>
+        
+        <div class="flex space-x-2">
+          <input type="text" id="history-search" placeholder="搜索产品名称或编号" class="flex-1 px-3 py-2 border border-gray-300 rounded-md text-sm">
+          <button onclick="searchHistory()" class="bg-primary text-white px-4 py-2 rounded-md">
+            <i class="fa fa-search"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- 记录列表 -->
+      <div class="p-4">
+        <div id="history-list" class="space-y-3">
+          <!-- 记录列表将通过JavaScript动态生成 -->
+          <div class="text-center text-gray-500 py-4">暂无记录</div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- 出入库明细页面 -->
+    <div id="detail-page" class="page detail-page">
+      <div class="bg-primary text-white p-4 shadow-md sticky top-0 z-30 flex justify-between items-center">
+        <h1 class="text-xl font-bold">出入库明细</h1>
+        <div class="flex space-x-2">
+          <button onclick="printDetail()" class="bg-white bg-opacity-20 p-2 rounded-full">
+            <i class="fa fa-print"></i>
+          </button>
+          <button onclick="navigateTo('history-page')" class="bg-white bg-opacity-20 p-2 rounded-full">
+            <i class="fa fa-arrow-left"></i>
+          </button>
+        </div>
+      </div>
+      
+      <div class="detail-header">
+        <div class="text-center mb-4">
+          <h2 id="detail-title" class="text-2xl font-bold">入库单</h2>
+          <p id="detail-number" class="text-gray-600">RK20240101001</p>
+        </div>
+        
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <p class="text-sm text-gray-500">供应商/领用人</p>
+            <p id="detail-party" class="font-medium">北京科技有限公司</p>
+          </div>
+          <div>
+            <p class="text-sm text-gray-500">日期</p>
+            <p id="detail-date" class="font-medium">2024-01-01</p>
+          </div>
+          <div>
+            <p class="text-sm text-gray-500">操作人</p>
+            <p id="detail-creator" class="font-medium">管理员</p>
+          </div>
+          <div>
+            <p class="text-sm text-gray-500">单据状态</p>
+            <p id="detail-status" class="font-medium text-success">已完成</p>
+          </div>
+        </div>
+        
+        <div class="mt-4">
+          <p class="text-sm text-gray-500">备注</p>
+          <p id="detail-remark" class="font-medium">年度采购</p>
+        </div>
+      </div>
+      
+      <div class="detail-content">
+        <h3 class="font-bold mb-4">商品明细</h3>
+        <div id="detail-items" class="space-y-4">
+          <!-- 明细将通过JavaScript动态生成 -->
+        </div>
+      </div>
+      
+      <div class="detail-footer">
+        <div class="flex justify-between items-center">
+          <div>
+            <p class="text-sm text-gray-500">共 <span id="detail-item-count">1</span> 项商品</p>
+            <p class="text-sm text-gray-500 mt-1">当前库存：<span id="detail-stock" class="font-medium">0</span></p>
+          </div>
+          <div class="text-right">
+            <p class="text-sm text-gray-500">合计金额</p>
+            <p id="detail-total" class="text-2xl font-bold text-primary">¥191,970.00</p>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- 系统设置页面 -->
+    <div id="settings-page" class="page">
+      <header class="py-4">
+        <h1 class="text-2xl font-bold text-primary">系统设置</h1>
+      </header>
+      
+      <!-- 通知设置 -->
+      <div class="bg-white rounded-lg overflow-hidden card-shadow mb-6">
+        <h2 class="text-lg font-semibold p-4 border-b border-gray-100">通知设置</h2>
+        
+        <div class="p-4 border-b border-gray-100 flex justify-between items-center">
+          <div class="flex items-center">
+            <i class="fa fa-bell text-primary mr-3 text-xl"></i>
+            <span>弹窗预警提示</span>
+          </div>
+          <label class="relative inline-flex items-center cursor-pointer">
+            <input type="checkbox" id="alert-popup-toggle" class="sr-only peer" onchange="toggleAlertPopup()">
+            <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+          </label>
+        </div>
+        
+        <div class="p-4 flex justify-between items-center">
+          <div class="flex items-center">
+            <i class="fa fa-mobile text-primary mr-3 text-xl"></i>
+            <span>系统通知提醒</span>
+          </div>
+          <label class="relative inline-flex items-center cursor-pointer">
+            <input type="checkbox" id="system-notification-toggle" class="sr-only peer" onchange="toggleSystemNotification()">
+            <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+          </label>
+        </div>
+      </div>
+      
+      <!-- 备份设置 -->
+      <div class="bg-white rounded-lg overflow-hidden card-shadow mb-6">
+        <h2 class="text-lg font-semibold p-4 border-b border-gray-100">备份设置</h2>
+        
+        <div class="p-4 border-b border-gray-100 flex justify-between items-center">
+          <div class="flex items-center">
+            <i class="fa fa-clock-o text-primary mr-3 text-xl"></i>
+            <span>自动备份（12小时）</span>
+          </div>
+          <label class="relative inline-flex items-center cursor-pointer">
+            <input type="checkbox" id="auto-backup-toggle" class="sr-only peer" onchange="toggleAutoBackup()">
+            <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+          </label>
+        </div>
+        
+        <div class="p-4">
+          <div class="text-sm text-gray-500 mb-2">上次备份：<span id="last-backup-time">从未备份</span></div>
+          <div class="flex gap-2">
+            <button onclick="manualBackup()" class="px-4 py-2 bg-primary text-white rounded-md text-sm">
+              <i class="fa fa-save mr-1"></i> 立即备份
+            </button>
+            <button onclick="restoreBackup()" class="px-4 py-2 bg-gray-200 text-gray-700 rounded-md text-sm">
+              <i class="fa fa-undo mr-1"></i> 恢复备份
+            </button>
+          </div>
+        </div>
+      </div>
+      
+      <!-- 自动导出设置 -->
+      <div class="bg-white rounded-lg overflow-hidden card-shadow mb-6">
+        <h2 class="text-lg font-semibold p-4 border-b border-gray-100">自动导出设置</h2>
+        
+        <div class="p-4 border-b border-gray-100 flex justify-between items-center">
+          <div class="flex items-center">
+            <i class="fa fa-sign-out text-primary mr-3 text-xl"></i>
+            <span>退出时自动导出</span>
+          </div>
+          <label class="relative inline-flex items-center cursor-pointer">
+            <input type="checkbox" id="auto-export-on-exit-toggle" class="sr-only peer" onchange="toggleAutoExportOnExit()">
+            <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+          </label>
+        </div>
+        
+        <div class="p-4 flex justify-between items-center">
+          <div class="flex items-center">
+            <i class="fa fa-sun-o text-primary mr-3 text-xl"></i>
+            <span>每天首次进入自动导出</span>
+          </div>
+          <label class="relative inline-flex items-center cursor-pointer">
+            <input type="checkbox" id="auto-export-on-start-toggle" class="sr-only peer" onchange="toggleAutoExportOnStart()">
+            <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+          </label>
+        </div>
+      </div>
+      
+      <!-- 设置选项 -->
+      <div class="bg-white rounded-lg overflow-hidden card-shadow mb-6">
+        <button onclick="navigateTo('product-management-page')" class="w-full flex justify-between items-center p-4 border-b border-gray-100">
+          <div class="flex items-center">
+            <i class="fa fa-cubes text-primary mr-3 text-xl"></i>
+            <span>产品档案管理</span>
+          </div>
+          <i class="fa fa-chevron-right text-gray-400"></i>
+        </button>
+        
+        <button onclick="navigateTo('supplier-management-page')" class="w-full flex justify-between items-center p-4 border-b border-gray-100">
+          <div class="flex items-center">
+            <i class="fa fa-truck text-primary mr-3 text-xl"></i>
+            <span>供应商管理</span>
+          </div>
+          <i class="fa fa-chevron-right text-gray-400"></i>
+        </button>
+        
+        <button onclick="navigateTo('user-management-page')" class="w-full flex justify-between items-center p-4 border-b border-gray-100">
+          <div class="flex items-center">
+            <i class="fa fa-users text-primary mr-3 text-xl"></i>
+            <span>领用人管理</span>
+          </div>
+          <i class="fa fa-chevron-right text-gray-400"></i>
+        </button>
+        
+        <button onclick="navigateTo('unit-management-page')" class="w-full flex justify-between items-center p-4">
+          <div class="flex items-center">
+            <i class="fa fa-balance-scale text-primary mr-3 text-xl"></i>
+            <span>单位管理</span>
+          </div>
+          <i class="fa fa-chevron-right text-gray-400"></i>
+        </button>
+      </div>
+      
+      <!-- 数据管理 -->
+      <div class="bg-white rounded-lg overflow-hidden card-shadow">
+        <h2 class="text-lg font-semibold p-4 border-b border-gray-100">数据管理</h2>
+        
+        <button onclick="exportData()" class="w-full flex justify-between items-center p-4 border-b border-gray-100">
+          <div class="flex items-center">
+            <i class="fa fa-download text-primary mr-3 text-xl"></i>
+            <span>导出数据</span>
+          </div>
+          <i class="fa fa-chevron-right text-gray-400"></i>
+        </button>
+        
+        <button onclick="importData()" class="w-full flex justify-between items-center p-4 border-b border-gray-100">
+          <div class="flex items-center">
+            <i class="fa fa-upload text-primary mr-3 text-xl"></i>
+            <span>导入数据</span>
+          </div>
+          <i class="fa fa-chevron-right text-gray-400"></i>
+        </button>
+        
+        <button onclick="clearAllData()" class="w-full flex justify-between items-center p-4 text-danger">
+          <div class="flex items-center">
+            <i class="fa fa-trash mr-3 text-xl"></i>
+            <span>清空所有数据</span>
+          </div>
+          <i class="fa fa-chevron-right"></i>
+        </button>
+      </div>
+    </div>
+    
+    <!-- 产品档案管理页面 -->
+    <div id="product-management-page" class="page">
+      <header class="py-4 flex justify-between items-center">
+        <h1 class="text-2xl font-bold text-primary">产品档案管理</h1>
+        <button onclick="showAddProductModal()" class="bg-primary text-white px-4 py-2 rounded-full flex items-center">
+          <i class="fa fa-plus mr-2"></i> 添加产品
+        </button>
+      </header>
+      
+      <!-- 产品列表 -->
+      <div class="bg-white rounded-lg p-4 card-shadow">
+        <div class="relative mb-4">
+          <input type="text" id="product-search" placeholder="搜索产品..." class="w-full px-4 py-2 border border-gray-300 rounded-md text-sm">
+          <i class="fa fa-search absolute right-3 top-3 text-gray-400"></i>
+        </div>
+        
+        <div id="product-list" class="space-y-4">
+          <!-- 产品列表将通过JS动态生成 -->
+          <div class="text-center text-gray-500 py-4">暂无产品数据</div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- 供应商管理页面 -->
+    <div id="supplier-management-page" class="page">
+      <header class="py-4 flex justify-between items-center">
+        <h1 class="text-2xl font-bold text-primary">供应商管理</h1>
+        <button onclick="showAddSupplierModal()" class="bg-primary text-white px-4 py-2 rounded-full flex items-center">
+          <i class="fa fa-plus mr-2"></i> 添加供应商
+        </button>
+      </header>
+      
+      <!-- 供应商列表 -->
+      <div class="bg-white rounded-lg p-4 card-shadow">
+        <div class="relative mb-4">
+          <input type="text" id="supplier-search" placeholder="搜索供应商..." class="w-full px-4 py-2 border border-gray-300 rounded-md text-sm">
+          <i class="fa fa-search absolute right-3 top-3 text-gray-400"></i>
+        </div>
+        
+        <div id="supplier-list" class="space-y-4">
+          <!-- 供应商列表将通过JS动态生成 -->
+          <div class="text-center text-gray-500 py-4">暂无供应商数据</div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- 领用人管理页面 -->
+    <div id="user-management-page" class="page">
+      <header class="py-4 flex justify-between items-center">
+        <h1 class="text-2xl font-bold text-primary">领用人管理</h1>
+        <button onclick="showAddUserModal()" class="bg-primary text-white px-4 py-2 rounded-full flex items-center">
+          <i class="fa fa-plus mr-2"></i> 添加领用人
+        </button>
+      </header>
+      
+      <!-- 领用人列表 -->
+      <div class="bg-white rounded-lg p-4 card-shadow">
+        <div class="relative mb-4">
+          <input type="text" id="user-search" placeholder="搜索领用人..." class="w-full px-4 py-2 border border-gray-300 rounded-md text-sm">
+          <i class="fa fa-search absolute right-3 top-3 text-gray-400"></i>
+        </div>
+        
+        <div id="user-list" class="space-y-4">
+          <!-- 领用人列表将通过JS动态生成 -->
+          <div class="text-center text-gray-500 py-4">暂无领用人数据</div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- 单位管理页面 -->
+    <div id="unit-management-page" class="page">
+      <header class="py-4 flex justify-between items-center">
+        <h1 class="text-2xl font-bold text-primary">单位管理</h1>
+        <button onclick="showAddUnitModal()" class="bg-primary text-white px-4 py-2 rounded-full flex items-center">
+          <i class="fa fa-plus mr-2"></i> 添加单位
+        </button>
+      </header>
+      
+      <!-- 单位列表 -->
+      <div class="bg-white rounded-lg p-4 card-shadow">
+        <div id="unit-list" class="space-y-4">
+          <!-- 单位列表将通过JS动态生成 -->
+          <div class="text-center text-gray-500 py-4">暂无单位数据</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <!-- 底部导航栏 -->
+  <nav class="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 flex justify-around items-center h-16 z-40">
+    <button onclick="navigateTo('home-page')" class="nav-item flex flex-col items-center justify-center w-1/6 active">
+      <i class="fa fa-home text-xl"></i>
+      <span class="text-xs mt-1">首页</span>
+    </button>
+    <button onclick="navigateTo('outbound-page')" class="nav-item flex flex-col items-center justify-center w-1/6">
+      <i class="fa fa-arrow-up text-xl"></i>
+      <span class="text-xs mt-1">出库</span>
+    </button>
+    <button onclick="navigateTo('inbound-page')" class="nav-item flex flex-col items-center justify-center w-1/6">
+      <i class="fa fa-arrow-down text-xl"></i>
+      <span class="text-xs mt-1">入库</span>
+    </button>
+    <button onclick="navigateTo('stock-page')" class="nav-item flex flex-col items-center justify-center w-1/6">
+      <i class="fa fa-list text-xl"></i>
+      <span class="text-xs mt-1">库存查询</span>
+    </button>
+    <button onclick="navigateTo('history-page')" class="nav-item flex flex-col items-center justify-center w-1/6">
+      <i class="fa fa-history text-xl"></i>
+      <span class="text-xs mt-1">物料明细</span>
+    </button>
+    <button onclick="navigateTo('settings-page')" class="nav-item flex flex-col items-center justify-center w-1/6">
+      <i class="fa fa-cog text-xl"></i>
+      <span class="text-xs mt-1">设置</span>
+    </button>
+  </nav>
+  
+  <!-- 扫码模态框 -->
+  <div id="scan-modal" class="fixed inset-0 bg-black bg-opacity-80 z-50 hidden flex flex-col items-center justify-center">
+    <div class="bg-white rounded-lg w-11/12 max-w-md overflow-hidden">
+      <div class="p-4 border-b border-gray-200 flex justify-between items-center">
+        <h2 class="text-xl font-bold" id="scan-modal-title">扫码识别</h2>
+        <button onclick="closeScanModal()" class="text-gray-500">
+          <i class="fa fa-times"></i>
+        </button>
+      </div>
+      
+      <div id="camera-preview-area" class="bg-black relative" style="height: 300px; display: none;">
+        <video id="scan-video" class="w-full h-full object-contain"></video>
+        <div class="absolute inset-0 flex items-center justify-center pointer-events-none">
+          <div class="w-4/5 h-1/2 border-2 border-white border-dashed rounded-lg opacity-50"></div>
+        </div>
+        <div id="camera-status" class="absolute bottom-2 left-0 right-0 text-center text-white text-xs bg-black bg-opacity-50 py-1">
+          摄像头未启动
+        </div>
+      </div>
+      
+      <div id="scan-icon-area" class="bg-gray-100 p-8 text-center">
+        <i class="fa fa-barcode text-6xl text-gray-400 mb-4"></i>
+        <p class="text-gray-600">选择扫码方式</p>
+        <p class="text-xs text-gray-400 mt-2">支持二维码、条形码等多种格式</p>
+      </div>
+      
+      <div class="p-4 text-center">
+        <div class="flex justify-center gap-2 flex-wrap mb-3">
+          <button onclick="takePhoto()" class="px-4 py-2 bg-accent text-white rounded-md text-sm flex items-center">
+            <i class="fa fa-camera mr-1"></i>拍照识别
+          </button>
+          <button onclick="selectFromGallery()" class="px-4 py-2 bg-success text-white rounded-md text-sm flex items-center">
+            <i class="fa fa-image mr-1"></i>相册选择
+          </button>
+          <input type="file" id="camera-file-input" name="camera-file-input" accept="image/*" capture="environment" onchange="scanFromFile(this)" class="hidden">
+          <input type="file" id="gallery-file-input" name="gallery-file-input" accept="image/*" onchange="scanFromFile(this)" class="hidden">
+        </div>
+        <button onclick="closeScanModal()" class="px-6 py-2 bg-gray-200 text-gray-700 rounded-md text-sm">
+          取消
+        </button>
+        <button onclick="showManualInput()" class="px-6 py-2 bg-gray-200 text-gray-700 rounded-md text-sm ml-2">
+          手动输入
+        </button>
+        <p class="text-xs text-gray-400 mt-2">提示：识别失败可尝试手动输入</p>
+      </div>
+    </div>
+  </div>
+  
+  <!-- 扫码结果选择模态框 -->
+  <div id="scan-result-modal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center">
+    <div class="bg-white rounded-lg w-11/12 max-w-md">
+      <div class="p-4 border-b border-gray-200 flex justify-between items-center">
+        <h2 class="text-xl font-bold">扫码结果</h2>
+        <button onclick="closeScanResultModal()" class="text-gray-500">
+          <i class="fa fa-times"></i>
+        </button>
+      </div>
+      
+      <div class="p-4">
+        <div class="mb-4 p-3 bg-gray-50 rounded-lg">
+          <p class="text-sm text-gray-500">扫描到条码</p>
+          <p class="font-bold text-lg" id="scan-result-code">-</p>
+        </div>
+        
+        <div id="scan-result-product" class="mb-4 hidden">
+          <div class="p-3 bg-green-50 rounded-lg border border-green-200">
+            <p class="text-sm text-green-600">找到产品</p>
+            <p class="font-bold" id="scan-result-product-name">-</p>
+            <p class="text-sm text-gray-500" id="scan-result-product-stock">-</p>
+          </div>
+        </div>
+        
+        <div id="scan-result-no-product" class="mb-4 hidden">
+          <div class="p-3 bg-yellow-50 rounded-lg border border-yellow-200">
+            <p class="text-sm text-yellow-600">未找到该产品</p>
+            <p class="text-sm">您可以选择添加新产品</p>
+          </div>
+        </div>
+        
+        <p class="text-sm text-gray-500 mb-3">请选择操作</p>
+        <div class="space-y-2">
+          <button onclick="scanResultInbound()" class="w-full py-3 bg-green-500 text-white rounded-md flex items-center justify-center">
+            <i class="fa fa-arrow-down mr-2"></i> 入库登记
+          </button>
+          <button onclick="scanResultOutbound()" class="w-full py-3 bg-orange-500 text-white rounded-md flex items-center justify-center">
+            <i class="fa fa-arrow-up mr-2"></i> 出库登记
+          </button>
+          <button onclick="scanResultAddProduct()" id="scan-result-add-btn" class="w-full py-3 bg-primary text-white rounded-md flex items-center justify-center hidden">
+            <i class="fa fa-plus mr-2"></i> 添加新产品
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <!-- 预警列表弹窗 -->
+  <div id="alert-list-modal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center">
+    <div class="bg-white rounded-lg w-11/12 max-w-md max-h-[80vh] overflow-hidden flex flex-col">
+      <div class="p-4 border-b border-gray-200 flex justify-between items-center">
+        <h2 class="text-xl font-bold text-warning">库存预警提醒</h2>
+        <button onclick="closeAlertListModal()" class="text-gray-500">
+          <i class="fa fa-times"></i>
+        </button>
+      </div>
+      
+      <div class="p-4 overflow-y-auto flex-1">
+        <div id="alert-list-content" class="space-y-3">
+          <!-- 预警列表将动态生成 -->
+        </div>
+      </div>
+      
+      <div class="p-4 border-t border-gray-200 flex gap-3">
+        <button onclick="clearAlertMessages()" class="flex-1 py-2 bg-gray-200 text-gray-700 rounded-md">
+          清空消息
+        </button>
+        <button onclick="closeAlertListModal()" class="flex-1 py-2 bg-primary text-white rounded-md">
+          我知道了
+        </button>
+      </div>
+    </div>
+  </div>
+  
+  <!-- 库存预警弹窗 -->
+  <div id="stock-alert-modal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center">
+    <div class="bg-white rounded-lg w-11/12 max-w-md max-h-[80vh] overflow-y-auto">
+      <div class="p-4 border-b border-gray-200 flex justify-between items-center">
+        <h2 class="text-xl font-bold text-danger">库存预警提醒</h2>
+        <button onclick="closeStockAlertModal()" class="text-gray-500">
+          <i class="fa fa-times"></i>
+        </button>
+      </div>
+      
+      <div class="p-4">
+        <p class="mb-4 text-gray-600">以下产品库存低于安全库存，请及时处理：</p>
+        <div id="stock-alert-list" class="space-y-3">
+          <!-- 预警列表将动态生成 -->
+        </div>
+      </div>
+      
+      <div class="p-4 border-t border-gray-200 flex gap-3 justify-end">
+        <button onclick="clearStockAlertMessages()" class="px-4 py-2 bg-gray-200 text-gray-700 rounded-md">
+          清空消息
+        </button>
+        <button onclick="closeStockAlertModal()" class="px-4 py-2 bg-primary text-white rounded-md">
+          我知道了
+        </button>
+      </div>
+    </div>
+  </div>
+  
+  <!-- 添加产品模态框 -->
+  <div id="add-product-modal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center">
+    <div class="bg-white rounded-lg w-11/12 max-w-md max-h-[90vh] overflow-y-auto">
+      <div class="p-4 border-b border-gray-200 flex justify-between items-center">
+        <h2 class="text-xl font-bold">添加产品</h2>
+        <button onclick="hideAddProductModal()" class="text-gray-500">
+          <i class="fa fa-times"></i>
+        </button>
+      </div>
+      
+      <form id="add-product-form" class="p-4 space-y-4">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">产品编码</label>
+          <input type="text" id="product-code" class="w-full px-3 py-2 border border-gray-300 rounded-md" required>
+        </div>
+        
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">产品名称</label>
+          <input type="text" id="product-name" class="w-full px-3 py-2 border border-gray-300 rounded-md" required>
+        </div>
+        
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">规格型号</label>
+          <input type="text" id="product-spec" class="w-full px-3 py-2 border border-gray-300 rounded-md">
+        </div>
+        
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">产品类别</label>
+          <input type="text" id="product-category" class="w-full px-3 py-2 border border-gray-300 rounded-md">
+        </div>
+        
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">基准单位</label>
+          <select id="product-base-unit" class="w-full px-3 py-2 border border-gray-300 rounded-md" required>
+            <option value="">请选择基准单位</option>
+            <!-- 单位选项将通过JS动态生成 -->
+          </select>
+        </div>
+        
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">换算关系</label>
+          <div id="conversion-rates-container" class="space-y-2">
+            <div class="flex items-center gap-2 conversion-rate-item">
+              <input type="number" id="conversion-value-left" name="conversion-value-left" class="w-16 px-2 py-2 border border-gray-300 rounded-md conversion-value-left" min="1" step="0.01" value="1">
+              <select class="flex-1 px-2 py-2 border border-gray-300 rounded-md conversion-unit-left">
+                <option value="">请选择单位</option>
+                <!-- 单位选项将通过JS动态生成 -->
+              </select>
+              <span class="text-gray-500">=</span>
+              <input type="number" id="conversion-value-right" name="conversion-value-right" class="w-16 px-2 py-2 border border-gray-300 rounded-md conversion-value-right" min="1" step="0.01" value="1">
+              <select class="flex-1 px-2 py-2 border border-gray-300 rounded-md conversion-unit-right">
+                <option value="">请选择单位</option>
+                <!-- 单位选项将通过JS动态生成 -->
+              </select>
+              <button type="button" onclick="removeConversionRate(this)" class="text-danger">
+                <i class="fa fa-times"></i>
+              </button>
+            </div>
+          </div>
+          <button type="button" onclick="addConversionRate()" class="mt-2 text-primary text-sm">
+            <i class="fa fa-plus"></i> 添加换算关系
+          </button>
+          <p class="text-xs text-gray-500 mt-1">示例：10片=1板，10板=1盒</p>
+        </div>
+        
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">最小库存</label>
+          <input type="number" id="product-min-stock" class="w-full px-3 py-2 border border-gray-300 rounded-md" min="0" step="0.01" value="0">
+        </div>
+        
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">供应商</label>
+          <select id="product-supplier" class="w-full px-3 py-2 border border-gray-300 rounded-md">
+            <option value="">请选择供应商</option>
+            <!-- 供应商选项将通过JS动态生成 -->
+          </select>
+        </div>
+        
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">使用方法</label>
+          <div class="grid grid-cols-2 gap-2">
+            <div>
+              <label class="block text-xs text-gray-500 mb-1">每次用量</label>
+              <input type="number" id="product-usage-per-time" class="w-full px-3 py-2 border border-gray-300 rounded-md" min="0" step="0.01" placeholder="每次用多少">
+            </div>
+            <div>
+              <label class="block text-xs text-gray-500 mb-1">每日次数</label>
+              <input type="number" id="product-usage-per-day" class="w-full px-3 py-2 border border-gray-300 rounded-md" min="0" step="1" placeholder="每天用几次">
+            </div>
+          </div>
+        </div>
+        
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">备注</label>
+          <textarea id="product-remarks" class="w-full px-3 py-2 border border-gray-300 rounded-md" rows="2"></textarea>
+        </div>
+        
+        <button type="submit" class="w-full bg-primary text-white py-2 rounded-md">保存</button>
+      </form>
+    </div>
+  </div>
+  
+  <!-- 添加供应商模态框 -->
+  <div id="add-supplier-modal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center">
+    <div class="bg-white rounded-lg w-11/12 max-w-md">
+      <div class="p-4 border-b border-gray-200 flex justify-between items-center">
+        <h2 class="text-xl font-bold">添加供应商</h2>
+        <button onclick="hideAddSupplierModal()" class="text-gray-500">
+          <i class="fa fa-times"></i>
+        </button>
+      </div>
+      
+      <form id="add-supplier-form" class="p-4 space-y-4">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">供应商名称</label>
+          <input type="text" id="supplier-name" class="w-full px-3 py-2 border border-gray-300 rounded-md" required>
+        </div>
+        
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">联系人</label>
+          <input type="text" id="supplier-contact" class="w-full px-3 py-2 border border-gray-300 rounded-md">
+        </div>
+        
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">联系电话</label>
+          <input type="tel" id="supplier-phone" class="w-full px-3 py-2 border border-gray-300 rounded-md">
+        </div>
+        
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">地址</label>
+          <input type="text" id="supplier-address" class="w-full px-3 py-2 border border-gray-300 rounded-md">
+        </div>
+        
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">备注</label>
+          <textarea id="supplier-remarks" class="w-full px-3 py-2 border border-gray-300 rounded-md" rows="2"></textarea>
+        </div>
+        
+        <button type="submit" class="w-full bg-primary text-white py-2 rounded-md">保存</button>
+      </form>
+    </div>
+  </div>
+  
+  <!-- 添加领用人模态框 -->
+  <div id="add-user-modal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center">
+    <div class="bg-white rounded-lg w-11/12 max-w-md">
+      <div class="p-4 border-b border-gray-200 flex justify-between items-center">
+        <h2 class="text-xl font-bold">添加领用人</h2>
+        <button onclick="hideAddUserModal()" class="text-gray-500">
+          <i class="fa fa-times"></i>
+        </button>
+      </div>
+      
+      <form id="add-user-form" class="p-4 space-y-4">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">姓名</label>
+          <input type="text" id="user-name" class="w-full px-3 py-2 border border-gray-300 rounded-md" required>
+        </div>
+        
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">部门</label>
+          <input type="text" id="user-department" class="w-full px-3 py-2 border border-gray-300 rounded-md">
+        </div>
+        
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">联系电话</label>
+          <input type="tel" id="user-phone" class="w-full px-3 py-2 border border-gray-300 rounded-md">
+        </div>
+        
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">备注</label>
+          <textarea id="user-remarks" class="w-full px-3 py-2 border border-gray-300 rounded-md" rows="2"></textarea>
+        </div>
+        
+        <button type="submit" class="w-full bg-primary text-white py-2 rounded-md">保存</button>
+      </form>
+    </div>
+  </div>
+  
+  <!-- 添加单位模态框 -->
+  <div id="add-unit-modal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center">
+    <div class="bg-white rounded-lg w-11/12 max-w-md">
+      <div class="p-4 border-b border-gray-200 flex justify-between items-center">
+        <h2 class="text-xl font-bold">添加单位</h2>
+        <button onclick="hideAddUnitModal()" class="text-gray-500">
+          <i class="fa fa-times"></i>
+        </button>
+      </div>
+      
+      <form id="add-unit-form" class="p-4 space-y-4">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">单位名称</label>
+          <input type="text" id="unit-name" class="w-full px-3 py-2 border border-gray-300 rounded-md" required>
+        </div>
+        
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">单位类别</label>
+          <select id="unit-category" class="w-full px-3 py-2 border border-gray-300 rounded-md">
+            <option value="数量">数量</option>
+            <option value="重量">重量</option>
+            <option value="体积">体积</option>
+            <option value="长度">长度</option>
+            <option value="面积">面积</option>
+            <option value="其他">其他</option>
+          </select>
+        </div>
+        
+        <button type="submit" class="w-full bg-primary text-white py-2 rounded-md">保存</button>
+      </form>
+    </div>
+  </div>
+  
+  <!-- 提示消息 -->
+  <div id="toast" class="fixed top-4 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white px-4 py-2 rounded-md z-50 hidden">
+    <span id="toast-message"></span>
+  </div>
+  
+  <!-- 主脚本 -->
+  <script>
+    // 全局变量
+    let scanMode = ''; // 'inbound' 或 'outbound'
+    let currentDetail = null;
+    let codeReader = null;
+    let editingProductId = null;
+    
+    // 数据存储键名
+    const STORAGE_KEYS = {
+      products: 'inventory_products',
+      suppliers: 'inventory_suppliers',
+      users: 'inventory_users',
+      units: 'inventory_units',
+      inboundRecords: 'inventory_inbound_records',
+      outboundRecords: 'inventory_outbound_records'
+    };
+    
+    // 初始化应用
+    document.addEventListener('DOMContentLoaded', function() {
+      try {
+        // 初始化数据
+        initializeData();
+        
+        // 初始化通知设置
+        initNotificationSettings();
+        
+        // 初始化备份设置
+        initBackupSettings();
+        
+        // 初始化自动导出设置
+        initAutoExportSettings();
+        
+        // 检查并执行每天首次进入自动导出
+        checkAndPerformDailyExport();
+        
+        // 设置退出时自动导出
+        setupAutoExportOnExit();
+        
+        // 更新UI
+        updateHomePage();
+        updateProductList();
+        updateSupplierList();
+        updateUserList();
+        updateUnitList();
+        updateStockList();
+        updateAlertPage();
+        
+        // 显示库存预警弹窗（仅在每次进入系统时显示一次）
+        if (!sessionStorage.getItem('alertShown')) {
+          setTimeout(() => {
+            showStockAlertModal();
+            sessionStorage.setItem('alertShown', 'true');
+          }, 500);
+        }
+        
+        // 设置当前日期
+        const today = new Date().toISOString().split('T')[0];
+        const inboundDate = document.getElementById('inbound-date');
+        const outboundDate = document.getElementById('outbound-date');
+        if (inboundDate) inboundDate.value = today;
+        if (outboundDate) outboundDate.value = today;
+        
+        // 生成单据编号
+        generateInboundCode();
+        generateOutboundCode();
+        
+        // 绑定事件
+        bindEvents();
+        
+        // 初始化产品模态框中的基准单位变更事件
+        const productBaseUnit = document.getElementById('product-base-unit');
+        if (productBaseUnit) {
+          productBaseUnit.addEventListener('change', updateBaseUnitDisplay);
+        }
+        
+        // 绑定产品编码输入事件
+        document.getElementById('inbound-product-code').addEventListener('input', function() {
+          fillProductInfo('inbound', this.value);
+        });
+        
+        document.getElementById('outbound-product-code').addEventListener('input', function() {
+          fillProductInfo('outbound', this.value);
+        });
+        
+        console.log('库存管理系统初始化成功');
+      } catch (error) {
+        console.error('系统初始化失败:', error);
+        alert('系统初始化失败，请刷新页面重试。错误信息: ' + error.message);
+      }
+    });
+    
+    // 初始化数据
+    function initializeData() {
+      try {
+        console.log('开始初始化数据...');
+        
+        // 清除可能损坏的数据
+        localStorage.removeItem(STORAGE_KEYS.products);
+        localStorage.removeItem(STORAGE_KEYS.suppliers);
+        localStorage.removeItem(STORAGE_KEYS.users);
+        localStorage.removeItem(STORAGE_KEYS.units);
+        localStorage.removeItem(STORAGE_KEYS.inboundRecords);
+        localStorage.removeItem(STORAGE_KEYS.outboundRecords);
+        
+        // 添加一些示例数据
+        const sampleUnits = [
+          { id: '1', name: '个', category: '数量', baseUnit: '', conversionRate: 1 },
+          { id: '2', name: '箱', category: '数量', baseUnit: '个', conversionRate: 10 },
+          { id: '3', name: '盒', category: '数量', baseUnit: '个', conversionRate: 20 },
+          { id: '4', name: '板', category: '数量', baseUnit: '个', conversionRate: 10 },
+          { id: '5', name: '千克', category: '重量', baseUnit: '', conversionRate: 1 },
+          { id: '6', name: '克', category: '重量', baseUnit: '千克', conversionRate: 0.001 },
+          { id: '7', name: '米', category: '长度', baseUnit: '', conversionRate: 1 },
+          { id: '8', name: '厘米', category: '长度', baseUnit: '米', conversionRate: 0.01 }
+        ];
+        
+        const sampleSuppliers = [
+          { id: '1', name: '优质供应商', contact: '张三', phone: '13800138001', address: '北京市朝阳区', remarks: '长期合作' },
+          { id: '2', name: '快捷配送', contact: '李四', phone: '13900139002', address: '上海市浦东新区', remarks: '送货快' }
+        ];
+        
+        const sampleUsers = [
+          { id: '1', name: '王五', department: '生产部', phone: '13700137001', remarks: '' },
+          { id: '2', name: '赵六', department: '研发部', phone: '13600136002', remarks: '' }
+        ];
+        
+        const sampleProducts = [
+          { 
+            id: '1', 
+            code: 'P001', 
+            name: '螺丝钉', 
+            specification: 'M4×10', 
+            category: '标准件', 
+            baseUnit: '个', 
+            unitConversions: { 
+              '个': 1, 
+              '箱': 1000,
+              '盒': 100
+            }, 
+            supplierId: '1', 
+            stock: 5000, 
+            minStock: 1000, 
+            remarks: '' 
+          },
+          { 
+            id: '2', 
+            code: 'P002', 
+            name: '电路板', 
+            specification: 'PCB-001', 
+            category: '电子元件', 
+            baseUnit: '个', 
+            unitConversions: { 
+              '个': 1, 
+              '板': 10,
+              '盒': 30,
+              '箱': 100
+            }, 
+            supplierId: '2', 
+            stock: 200, 
+            minStock: 50, 
+            remarks: '' 
+          },
+          { 
+            id: '3', 
+            code: 'P003', 
+            name: '铝合金板材', 
+            specification: '1000×500×2mm', 
+            category: '原材料', 
+            baseUnit: '千克', 
+            unitConversions: { 
+              '千克': 1,
+              '克': 1000
+            }, 
+            supplierId: '1', 
+            stock: 50, 
+            minStock: 10, 
+            remarks: '' 
+          },
+          { 
+            id: '4', 
+            code: 'P004', 
+            name: '电子元件A', 
+            specification: 'SMD-001', 
+            category: '电子元件', 
+            baseUnit: '个', 
+            unitConversions: { 
+              '个': 1, 
+              '盒': 100,
+              '箱': 1000
+            }, 
+            supplierId: '2', 
+            stock: 100, 
+            minStock: 200, 
+            remarks: '库存预警示例' 
+          },
+          { 
+            id: '5', 
+            code: 'P005', 
+            name: '包装材料', 
+            specification: '标准包装', 
+            category: '包装材料', 
+            baseUnit: '个', 
+            unitConversions: { 
+              '个': 1, 
+              '箱': 500
+            }, 
+            supplierId: '1', 
+            stock: 0, 
+            minStock: 50, 
+            remarks: '库存不足示例' 
+          }
+        ];
+        
+        // 保存示例数据
+        localStorage.setItem(STORAGE_KEYS.units, JSON.stringify(sampleUnits));
+        localStorage.setItem(STORAGE_KEYS.suppliers, JSON.stringify(sampleSuppliers));
+        localStorage.setItem(STORAGE_KEYS.users, JSON.stringify(sampleUsers));
+        localStorage.setItem(STORAGE_KEYS.products, JSON.stringify(sampleProducts));
+        
+        // 添加一些示例记录
+        const sampleInboundRecords = [
+          {
+            id: 'in-001',
+            code: 'RK20240101001',
+            date: '2024-01-01T10:00:00',
+            supplierId: '1',
+            supplierName: '优质供应商',
+            productId: '1',
+            productName: '螺丝钉',
+            productCode: 'P001',
+            specification: 'M4×10',
+            quantity: 1000,
+            unit: '个',
+            baseQuantity: 1000,
+            price: 0.5,
+            totalPrice: 500,
+            createdBy: '管理员',
+            remarks: '年度采购',
+            stockAfter: 5000
+          },
+          {
+            id: 'in-002',
+            code: 'RK20240102001',
+            date: '2024-01-02T14:30:00',
+            supplierId: '2',
+            supplierName: '快捷配送',
+            productId: '2',
+            productName: '电路板',
+            productCode: 'P002',
+            specification: 'PCB-001',
+            quantity: 20,
+            unit: '个',
+            baseQuantity: 20,
+            price: 100,
+            totalPrice: 2000,
+            createdBy: '管理员',
+            remarks: '',
+            stockAfter: 200
+          }
+        ];
+        
+        const sampleOutboundRecords = [
+          {
+            id: 'out-001',
+            code: 'CK20240103001',
+            date: '2024-01-03T09:15:00',
+            userId: '1',
+            userName: '王五',
+            userDepartment: '生产部',
+            productId: '1',
+            productName: '螺丝钉',
+            productCode: 'P001',
+            specification: 'M4×10',
+            quantity: 500,
+            unit: '个',
+            baseQuantity: 500,
+            createdBy: '管理员',
+            remarks: '生产部领用',
+            stockAfter: 4500
+          },
+          {
+            id: 'out-002',
+            code: 'CK20240104001',
+            date: '2024-01-04T16:20:00',
+            userId: '2',
+            userName: '赵六',
+            userDepartment: '研发部',
+            productId: '2',
+            productName: '电路板',
+            productCode: 'P002',
+            specification: 'PCB-001',
+            quantity: 5,
+            unit: '个',
+            baseQuantity: 5,
+            createdBy: '管理员',
+            remarks: '研发部项目使用',
+            stockAfter: 195
+          }
+        ];
+        
+        localStorage.setItem(STORAGE_KEYS.inboundRecords, JSON.stringify(sampleInboundRecords));
+        localStorage.setItem(STORAGE_KEYS.outboundRecords, JSON.stringify(sampleOutboundRecords));
+        
+        console.log('数据初始化完成');
+      } catch (error) {
+        console.error('初始化数据失败:', error);
+        throw error;
+      }
+    }
+    
+    // 绑定事件
+    function bindEvents() {
+      // 扫码按钮
+      document.getElementById('scan-btn').addEventListener('click', function() {
+        openScanModal('general');
+      });
+      
+      document.getElementById('scan-inbound-btn').addEventListener('click', function() {
+        openScanModal('inbound');
+      });
+      
+      document.getElementById('scan-outbound-btn').addEventListener('click', function() {
+        openScanModal('outbound');
+      });
+      
+      // 表单提交
+      document.getElementById('add-product-form').addEventListener('submit', function(e) {
+        e.preventDefault();
+        saveProduct();
+      });
+      
+      document.getElementById('add-supplier-form').addEventListener('submit', function(e) {
+        e.preventDefault();
+        saveSupplier();
+      });
+      
+      document.getElementById('add-user-form').addEventListener('submit', function(e) {
+        e.preventDefault();
+        saveUser();
+      });
+      
+      document.getElementById('add-unit-form').addEventListener('submit', function(e) {
+        e.preventDefault();
+        saveUnit();
+      });
+      
+      // 搜索功能
+      document.getElementById('stock-search').addEventListener('input', function() {
+        const searchTerm = this.value.toLowerCase();
+        filterStockList(searchTerm);
+      });
+      
+      document.getElementById('product-search').addEventListener('input', function() {
+        const searchTerm = this.value.toLowerCase();
+        filterProductList(searchTerm);
+      });
+      
+      document.getElementById('supplier-search').addEventListener('input', function() {
+        const searchTerm = this.value.toLowerCase();
+        filterSupplierList(searchTerm);
+      });
+      
+      document.getElementById('user-search').addEventListener('input', function() {
+        const searchTerm = this.value.toLowerCase();
+        filterUserList(searchTerm);
+      });
+      
+      document.getElementById('history-search').addEventListener('input', function() {
+        const searchTerm = this.value.toLowerCase();
+        filterHistoryBySearch(searchTerm);
+      });
+    }
+    
+    // 页面导航
+    function navigateTo(pageId) {
+      try {
+        console.log('导航到页面:', pageId);
+        
+        // 隐藏所有页面
+        document.querySelectorAll('.page').forEach(page => {
+          page.classList.remove('active');
+          page.classList.add('hidden');
+        });
+        
+        // 显示目标页面
+        const targetPage = document.getElementById(pageId);
+        if (!targetPage) {
+          console.error('页面不存在:', pageId);
+          showToast('页面不存在');
+          return;
+        }
+        
+        targetPage.classList.add('active');
+        targetPage.classList.remove('hidden');
+        
+        // 更新顶部标题
+        updateTopBarTitle(pageId);
+        
+        // 更新导航栏状态
+        updateNavBar(pageId);
+        
+        // 根据页面ID执行特定操作
+        switch(pageId) {
+          case 'home-page':
+            updateHomePage();
+            break;
+          case 'stock-page':
+            updateStockList();
+            break;
+          case 'alert-page':
+            updateAlertPage();
+            break;
+          case 'history-page':
+            filterHistory('all');
+            break;
+          case 'product-management-page': updateProductList();
+ break;
+          case 'supplier-management-page':
+            updateSupplierList();
+            break;
+          case 'user-management-page':
+            updateUserList();
+            break;
+          case 'unit-management-page':
+            updateUnitList();
+            break;
+          case 'inbound-page':
+            generateInboundCode();
+            populateSupplierSelect();
+            // 清空单位选择框，等待选择产品后填充
+            const inboundUnitSelect = document.getElementById('inbound-unit');
+            if (inboundUnitSelect) {
+              inboundUnitSelect.innerHTML = '<option value="">请选择单位</option>';
+            }
+            break;
+          case 'outbound-page':
+            generateOutboundCode();
+            populateUserSelect();
+            // 清空单位选择框，等待选择产品后填充
+            const outboundUnitSelect = document.getElementById('outbound-unit');
+            if (outboundUnitSelect) {
+              outboundUnitSelect.innerHTML = '<option value="">请选择单位</option>';
+            }
+            break;
+        }
+        
+        // 添加页面切换动画
+        targetPage.classList.add('fade-in');
+        setTimeout(() => {
+          targetPage.classList.remove('fade-in');
+        }, 300);
+        
+      } catch (error) {
+        console.error('页面导航失败:', error);
+        showToast('导航失败，请重试');
+      }
+    }
+    
+    // 更新顶部标题
+    function updateTopBarTitle(pageId) {
+      const titleMap = {
+        'home-page': '库存概览',
+        'stock-page': '库存查询',
+        'inbound-page': '入库管理',
+        'outbound-page': '出库管理',
+        'alert-page': '库存预警',
+        'history-page': '出入库记录',
+        'settings-page': '系统设置',
+        'product-management-page': '产品档案管理',
+        'supplier-management-page': '供应商管理',
+        'user-management-page': '领用人管理',
+        'unit-management-page': '单位管理',
+        'detail-page': '明细详情'
+      };
+      
+      const title = titleMap[pageId] || '库存管理系统';
+      document.getElementById('top-bar-title').textContent = title;
+    }
+    
+    // 显示预警列表
+    function showAlertList() {
+      const products = getStoredData(STORAGE_KEYS.products) || [];
+      const alertProducts = products.filter(product => product.stock < product.minStock);
+      
+      const container = document.getElementById('alert-list-content');
+      
+      if (alertProducts.length === 0) {
+        container.innerHTML = '<div class="text-center text-gray-500 py-4">暂无库存预警</div>';
+      } else {
+        let html = '';
+        alertProducts.forEach(product => {
+          const shortage = product.minStock - product.stock;
+          const dailyUsage = product.usagePerTime * product.usagePerDay;
+          const availableDays = dailyUsage > 0 ? Math.floor(product.stock / dailyUsage) : 0;
+          const availableTimes = product.usagePerTime > 0 ? Math.floor(product.stock / product.usagePerTime) : 0;
+          
+          html += `
+            <div class="bg-red-50 p-3 rounded-lg border border-red-200">
+              <div class="flex justify-between items-start mb-2">
+                <div>
+                  <p class="font-medium text-red-800">${product.name}</p>
+                  <p class="text-xs text-gray-500">编码：${product.code}</p>
+                </div>
+                <span class="px-2 py-1 bg-red-500 text-white text-xs rounded-full">预警</span>
+              </div>
+              <p class="text-sm text-red-600 mb-1">
+                您的 <strong>${product.name}</strong> 还有 <strong>${formatStockToUnits(product, true)}</strong>
+                ${availableDays > 0 ? `，预计可使用 <strong>${availableDays}天</strong>（约${availableTimes}次）` : ''}
+              </p>
+              <p class="text-xs text-gray-500">安全库存：${product.minStock}${product.baseUnit}，短缺：${shortage}${product.baseUnit}</p>
+              <p class="text-xs text-warning mt-1">请及时采购入库！</p>
+              <div class="flex gap-2 mt-2">
+                <button onclick="closeAlertListModal();navigateTo('inbound-page');document.getElementById('inbound-product-code').value='${product.code}';fillProductInfo('inbound', '${product.code}')" class="text-xs px-3 py-1 bg-primary text-white rounded">立即入库</button>
+              </div>
+            </div>
+          `;
+        });
+        container.innerHTML = html;
+      }
+      
+      document.getElementById('alert-list-modal').classList.remove('hidden');
+    }
+    
+    // 关闭预警列表弹窗
+    function closeAlertListModal() {
+      document.getElementById('alert-list-modal').classList.add('hidden');
+    }
+    
+    // 清空预警消息
+    function clearAlertMessages() {
+      if (confirm('确定要清空所有预警消息吗？')) {
+        const container = document.getElementById('alert-list-content');
+        container.innerHTML = '<div class="text-center text-gray-500 py-4">暂无预警消息</div>';
+        
+        // 可以选择在这里添加标记，防止重复显示同一批次预警
+        // localStorage.setItem('lastClearTime', Date.now().toString());
+        
+        showToast('预警消息已清空');
+        closeAlertListModal();
+      }
+    }
+    
+    // 切换弹窗预警提示
+    function toggleAlertPopup() {
+      const toggle = document.getElementById('alert-popup-toggle');
+      const isEnabled = toggle.checked;
+      localStorage.setItem('alertPopupEnabled', isEnabled);
+      showToast(isEnabled ? '弹窗预警提示已开启' : '弹窗预警提示已关闭');
+    }
+    
+    // 切换系统通知提醒
+    function toggleSystemNotification() {
+      const toggle = document.getElementById('system-notification-toggle');
+      const isEnabled = toggle.checked;
+      
+      if (isEnabled) {
+        // 请求通知权限
+        requestNotificationPermission();
+      } else {
+        localStorage.setItem('systemNotificationEnabled', 'false');
+        showToast('系统通知提醒已关闭');
+      }
+    }
+    
+    // 请求通知权限
+    function requestNotificationPermission() {
+      if (!('Notification' in window)) {
+        showToast('您的浏览器不支持系统通知');
+        document.getElementById('system-notification-toggle').checked = false;
+        return;
+      }
+      
+      Notification.requestPermission().then(permission => {
+        if (permission === 'granted') {
+          localStorage.setItem('systemNotificationEnabled', 'true');
+          showToast('系统通知提醒已开启');
+          // 发送测试通知
+          new Notification('库存管理系统', {
+            body: '系统通知功能已开启，您将收到库存预警提醒',
+            icon: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">📦</text></svg>'
+          });
+        } else {
+          localStorage.setItem('systemNotificationEnabled', 'false');
+          document.getElementById('system-notification-toggle').checked = false;
+          showToast('未获得通知权限，无法开启系统通知');
+        }
+      });
+    }
+    
+    // 发送系统通知
+    function sendSystemNotification(alertProducts) {
+      const systemNotificationEnabled = localStorage.getItem('systemNotificationEnabled') === 'true';
+      if (!systemNotificationEnabled || !('Notification' in window) || Notification.permission !== 'granted') {
+        return;
+      }
+      
+      if (alertProducts.length === 0) return;
+      
+      const productNames = alertProducts.slice(0, 3).map(p => p.name).join('、');
+      const moreText = alertProducts.length > 3 ? `等${alertProducts.length}种产品` : '';
+      
+      const notification = new Notification('库存预警提醒', {
+        body: `您的${productNames}${moreText}库存不足，请及时采购入库！`,
+        icon: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">⚠️</text></svg>',
+        tag: 'stock-alert'
+      });
+      
+      notification.onclick = function() {
+        window.focus();
+        this.close();
+      };
+    }
+    
+    // 初始化通知设置状态
+    function initNotificationSettings() {
+      const alertPopupEnabled = localStorage.getItem('alertPopupEnabled') !== 'false';
+      const systemNotificationEnabled = localStorage.getItem('systemNotificationEnabled') === 'true';
+      
+      document.getElementById('alert-popup-toggle').checked = alertPopupEnabled;
+      document.getElementById('system-notification-toggle').checked = systemNotificationEnabled;
+    }
+    
+    // 切换自动备份
+    function toggleAutoBackup() {
+      const toggle = document.getElementById('auto-backup-toggle');
+      const isEnabled = toggle.checked;
+      localStorage.setItem('autoBackupEnabled', isEnabled);
+      
+      if (isEnabled) {
+        startAutoBackup();
+        showToast('自动备份已开启（每12小时）');
+      } else {
+        stopAutoBackup();
+        showToast('自动备份已关闭');
+      }
+    }
+    
+    // 自动备份定时器
+    let autoBackupTimer = null;
+    
+    // 启动自动备份
+    function startAutoBackup() {
+      // 清除现有定时器
+      if (autoBackupTimer) {
+        clearInterval(autoBackupTimer);
+      }
+      
+      const autoBackupEnabled = localStorage.getItem('autoBackupEnabled') === 'true';
+      if (!autoBackupEnabled) return;
+      
+      // 每12小时执行一次备份（12 * 60 * 60 * 1000 = 43200000毫秒）
+      autoBackupTimer = setInterval(() => {
+        performBackup();
+      }, 43200000);
+    }
+    
+    // 停止自动备份
+    function stopAutoBackup() {
+      if (autoBackupTimer) {
+        clearInterval(autoBackupTimer);
+        autoBackupTimer = null;
+      }
+    }
+    
+    // 执行备份
+    function performBackup() {
+      try {
+        const backupData = {
+          timestamp: new Date().toISOString(),
+          products: getStoredData(STORAGE_KEYS.products) || [],
+          suppliers: getStoredData(STORAGE_KEYS.suppliers) || [],
+          users: getStoredData(STORAGE_KEYS.users) || [],
+          units: getStoredData(STORAGE_KEYS.units) || [],
+          inboundRecords: getStoredData(STORAGE_KEYS.inboundRecords) || [],
+          outboundRecords: getStoredData(STORAGE_KEYS.outboundRecords) || []
+        };
+        
+        localStorage.setItem('inventory_backup', JSON.stringify(backupData));
+        localStorage.setItem('lastBackupTime', backupData.timestamp);
+        updateLastBackupDisplay();
+        
+        console.log('自动备份完成:', backupData.timestamp);
+      } catch (error) {
+        console.error('备份失败:', error);
+      }
+    }
+    
+    // 手动备份
+    function manualBackup() {
+      performBackup();
+      showToast('备份完成！');
+    }
+    
+    // 恢复备份
+    function restoreBackup() {
+      try {
+        const backupData = localStorage.getItem('inventory_backup');
+        if (!backupData) {
+          showToast('没有找到备份数据');
+          return;
+        }
+        
+        if (!confirm('确定要恢复备份吗？当前数据将被覆盖。')) {
+          return;
+        }
+        
+        const data = JSON.parse(backupData);
+        
+        // 恢复数据
+        if (data.products) localStorage.setItem(STORAGE_KEYS.products, JSON.stringify(data.products));
+        if (data.suppliers) localStorage.setItem(STORAGE_KEYS.suppliers, JSON.stringify(data.suppliers));
+        if (data.users) localStorage.setItem(STORAGE_KEYS.users, JSON.stringify(data.users));
+        if (data.units) localStorage.setItem(STORAGE_KEYS.units, JSON.stringify(data.units));
+        if (data.inboundRecords) localStorage.setItem(STORAGE_KEYS.inboundRecords, JSON.stringify(data.inboundRecords));
+        if (data.outboundRecords) localStorage.setItem(STORAGE_KEYS.outboundRecords, JSON.stringify(data.outboundRecords));
+        
+        // 更新UI
+        updateHomePage();
+        updateProductList();
+        updateSupplierList();
+        updateUserList();
+        updateUnitList();
+        updateStockList();
+        
+        showToast('备份恢复成功！');
+      } catch (error) {
+        console.error('恢复备份失败:', error);
+        showToast('恢复备份失败：' + error.message);
+      }
+    }
+    
+    // 更新上次备份时间显示
+    function updateLastBackupDisplay() {
+      const lastBackupTime = localStorage.getItem('lastBackupTime');
+      const displayElement = document.getElementById('last-backup-time');
+      
+      if (lastBackupTime && displayElement) {
+        const date = new Date(lastBackupTime);
+        displayElement.textContent = date.toLocaleString('zh-CN');
+      }
+    }
+    
+    // 初始化备份设置
+    function initBackupSettings() {
+      const autoBackupEnabled = localStorage.getItem('autoBackupEnabled') === 'true';
+      document.getElementById('auto-backup-toggle').checked = autoBackupEnabled;
+      
+      updateLastBackupDisplay();
+      
+      // 启动自动备份（如果已开启）
+      if (autoBackupEnabled) {
+        startAutoBackup();
+      }
+    }
+    
+    // 初始化自动导出设置
+    function initAutoExportSettings() {
+      const autoExportOnExit = localStorage.getItem('autoExportOnExit') === 'true';
+      const autoExportOnStart = localStorage.getItem('autoExportOnStart') === 'true';
+      
+      document.getElementById('auto-export-on-exit-toggle').checked = autoExportOnExit;
+      document.getElementById('auto-export-on-start-toggle').checked = autoExportOnStart;
+    }
+    
+    // 切换退出时自动导出
+    function toggleAutoExportOnExit() {
+      const toggle = document.getElementById('auto-export-on-exit-toggle');
+      const isEnabled = toggle.checked;
+      localStorage.setItem('autoExportOnExit', isEnabled);
+      
+      if (isEnabled) {
+        showToast('退出时自动导出已开启');
+      } else {
+        showToast('退出时自动导出已关闭');
+      }
+    }
+    
+    // 切换每天首次进入自动导出
+    function toggleAutoExportOnStart() {
+      const toggle = document.getElementById('auto-export-on-start-toggle');
+      const isEnabled = toggle.checked;
+      localStorage.setItem('autoExportOnStart', isEnabled);
+      
+      if (isEnabled) {
+        showToast('每天首次进入自动导出已开启');
+      } else {
+        showToast('每天首次进入自动导出已关闭');
+      }
+    }
+    
+    // 执行自动导出
+    function performAutoExport() {
+      try {
+        const exportData = {
+          products: getStoredData(STORAGE_KEYS.products),
+          suppliers: getStoredData(STORAGE_KEYS.suppliers),
+          users: getStoredData(STORAGE_KEYS.users),
+          units: getStoredData(STORAGE_KEYS.units),
+          inboundRecords: getStoredData(STORAGE_KEYS.inboundRecords),
+          outboundRecords: getStoredData(STORAGE_KEYS.outboundRecords),
+          exportTime: new Date().toISOString()
+        };
+        
+        const jsonString = JSON.stringify(exportData, null, 2);
+        const blob = new Blob([jsonString], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `库存数据_${new Date().toISOString().split('T')[0]}.json`;
+        document.body.appendChild(a);
+        a.click();
+        
+        setTimeout(() => {
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+        }, 0);
+        
+        console.log('自动导出完成');
+        return true;
+      } catch (error) {
+        console.error('自动导出失败:', error);
+        return false;
+      }
+    }
+    
+    // 检查并执行每天首次进入自动导出
+    function checkAndPerformDailyExport() {
+      const autoExportOnStart = localStorage.getItem('autoExportOnStart') === 'true';
+      if (!autoExportOnStart) return;
+      
+      const today = new Date().toISOString().split('T')[0];
+      const lastExportDate = localStorage.getItem('lastAutoExportDate');
+      
+      if (lastExportDate !== today) {
+        performAutoExport();
+        localStorage.setItem('lastAutoExportDate', today);
+        console.log('每天首次进入自动导出完成');
+      }
+    }
+    
+    // 设置退出时自动导出
+    function setupAutoExportOnExit() {
+      window.addEventListener('beforeunload', function(e) {
+        const autoExportOnExit = localStorage.getItem('autoExportOnExit') === 'true';
+        if (autoExportOnExit) {
+          performAutoExport();
+          console.log('退出时自动导出完成');
+        }
+      });
+    }
+    
+    // 更新导航栏状态
+    function updateNavBar(activePageId) {
+      // 移除所有导航项的active类
+      document.querySelectorAll('.nav-item').forEach(item => {
+        item.classList.remove('active');
+      });
+      
+      // 为当前页面对应的导航项添加active类
+      const navItems = document.querySelectorAll('.nav-item');
+      navItems.forEach(item => {
+        const onclick = item.getAttribute('onclick');
+        if (onclick && onclick.includes(activePageId)) {
+          item.classList.add('active');
+        }
+      });
+      
+      // 更新预警徽章
+      updateAlertBadge();
+    }
+    
+    // 更新首页数据
+    function updateHomePage() {
+      try {
+        // 获取产品数据
+        const products = getStoredData(STORAGE_KEYS.products) || [];
+        const totalProducts = products.length;
+        
+        // 计算库存预警数量
+        let alertCount = 0;
+        products.forEach(product => {
+          if (product.stock < product.minStock) {
+            alertCount++;
+          }
+        });
+        
+        // 获取今日出入库数据
+        const today = new Date().toISOString().split('T')[0];
+        const inboundRecords = getStoredData(STORAGE_KEYS.inboundRecords) || [];
+        const outboundRecords = getStoredData(STORAGE_KEYS.outboundRecords) || [];
+        
+        const todayInbound = inboundRecords.filter(r => r.date === today).length;
+        const todayOutbound = outboundRecords.filter(r => r.date === today).length;
+        
+        // 更新UI
+        document.getElementById('total-products').textContent = totalProducts;
+        document.getElementById('stock-alerts').textContent = alertCount;
+        document.getElementById('today-inbound').textContent = todayInbound;
+        document.getElementById('today-outbound').textContent = todayOutbound;
+        
+        // 更新库存状态概览
+        updateStockOverview(products);
+        
+        // 更新最近操作
+        updateRecentOperations();
+        
+      } catch (error) {
+        console.error('更新首页失败:', error);
+      }
+    }
+    
+    // 更新库存状态概览
+    function updateStockOverview(products) {
+      const container = document.getElementById('stock-overview');
+      
+      if (products.length === 0) {
+        container.innerHTML = '<div class="text-center text-gray-500 py-4">暂无产品数据</div>';
+        return;
+      }
+      
+      // 获取预警产品
+      const alertProducts = products.filter(p => p.stock < p.minStock).slice(0, 5);
+      
+      if (alertProducts.length === 0) {
+        container.innerHTML = `
+          <div class="flex items-center justify-center py-4 text-success">
+            <i class="fa fa-check-circle mr-2"></i>
+            <span>所有产品库存充足</span>
+          </div>
+        `;
+        return;
+      }
+      
+      let html = '';
+      alertProducts.forEach(product => {
+        const dailyUsage = product.usagePerTime * product.usagePerDay;
+        const availableDays = dailyUsage > 0 ? Math.floor(product.stock / dailyUsage) : 0;
+        
+        html += `
+          <div class="flex items-center justify-between p-3 bg-red-50 rounded-lg">
+            <div class="flex items-center">
+              <div class="w-8 h-8 rounded-full bg-red-200 flex items-center justify-center mr-3">
+                <i class="fa fa-exclamation text-red-600 text-sm"></i>
+              </div>
+              <div>
+                <p class="font-medium text-sm">${product.name}</p>
+                <p class="text-xs text-gray-500">库存: ${formatStockToUnits(product, true)} / 安全: ${product.minStock}${product.baseUnit}</p>
+              </div>
+            </div>
+            <div class="text-right">
+              ${availableDays > 0 ? `<p class="text-xs text-red-600">可用${availableDays}天</p>` : ''}
+              <p class="text-xs text-warning">请及时补货</p>
+            </div>
+          </div>
+        `;
+      });
+      
+      if (alertProducts.length < products.filter(p => p.stock < p.minStock).length) {
+        html += `
+          <div class="text-center text-sm text-gray-500 pt-2">
+            还有${products.filter(p => p.stock < p.minStock).length - alertProducts.length}种产品预警
+          </div>
+        `;
+      }
+      
+      container.innerHTML = html;
+    }
+    
+    // 更新最近操作列表
+    function updateRecentOperations() {
+      try {
+        const inboundRecords = getStoredData(STORAGE_KEYS.inboundRecords) || [];
+        const outboundRecords = getStoredData(STORAGE_KEYS.outboundRecords) || [];
+        
+        // 合并并排序记录
+        let allRecords = [
+          ...inboundRecords.map(record => ({...record, type: 'inbound'})),
+          ...outboundRecords.map(record => ({...record, type: 'outbound'}))
+        ];
+        
+        // 按日期排序（最新的在前）
+        allRecords.sort((a, b) => new Date(b.date) - new Date(a.date));
+        
+        // 取最近的5条记录
+        const recentRecords = allRecords.slice(0, 5);
+        
+        const container = document.getElementById('recent-operations');
+        if (recentRecords.length === 0) {
+          container.innerHTML = '<div class="text-center text-gray-500 py-4">暂无操作记录</div>';
+          return;
+        }
+        
+        // 生成HTML
+        let html = '';
+        recentRecords.forEach(record => {
+          const date = new Date(record.date);
+          const formattedDate = `${date.getFullYear()}-${(date.getMonth()+1).toString().padStart(2, '0')}-${date.getDate().toString().padStart(2, '0')}`;
+          
+          html += `
+            <div class="flex justify-between items-center p-3 border-b border-gray-100 last:border-0" onclick="viewDetail('${record.type}', '${record.id}')">
+              <div class="flex items-center">
+                <div class="w-8 h-8 rounded-full flex items-center justify-center ${record.type === 'inbound' ? 'bg-green-100 text-green-600' : 'bg-orange-100 text-orange-600'} mr-3">
+                  <i class="fa ${record.type === 'inbound' ? 'fa-arrow-down' : 'fa-arrow-up'}"></i>
+                </div>
+                <div>
+                  <p class="font-medium">${record.productName}</p>
+                  <p class="text-xs text-gray-500">${formattedDate} · ${record.type === 'inbound' ? '入库' : '出库'} · ${record.quantity}${record.unit}</p>
+                </div>
+              </div>
+              <i class="fa fa-chevron-right text-gray-300"></i>
+            </div>
+          `;
+        });
+        
+        container.innerHTML = html;
+        
+      } catch (error) {
+        console.error('更新最近操作失败:', error);
+      }
+    }
+    
+    // 更新产品列表
+    function updateProductList(searchTerm = '') {
+      try {
+        const products = getStoredData(STORAGE_KEYS.products) || [];
+        const container = document.getElementById('product-list');
+        
+        if (products.length === 0) {
+          container.innerHTML = '<div class="text-center text-gray-500 py-4">暂无产品数据</div>';
+          return;
+        }
+        
+        // 过滤产品
+        const filteredProducts = products.filter(product => {
+          if (!searchTerm) return true;
+          return product.name.toLowerCase().includes(searchTerm) || 
+                 product.code.toLowerCase().includes(searchTerm) ||
+                 product.specification.toLowerCase().includes(searchTerm);
+        });
+        
+        if (filteredProducts.length === 0) {
+          container.innerHTML = '<div class="text-center text-gray-500 py-4">未找到匹配的产品</div>';
+          return;
+        }
+        
+        // 生成产品列表HTML
+        let html = '';
+        filteredProducts.forEach(product => {
+          // 获取供应商名称
+          const suppliers = getStoredData(STORAGE_KEYS.suppliers) || [];
+          const supplier = suppliers.find(s => s.id === product.supplierId) || { name: '未知供应商' };
+          
+          // 库存状态
+          let stockStatus = 'stock-normal';
+          let statusText = '库存充足';
+          if (product.stock <= 0) {
+            stockStatus = 'stock-danger';
+            statusText = '库存不足';
+          } else if (product.stock < product.minStock) {
+            stockStatus = 'stock-warning';
+            statusText = '库存预警';
+          }
+          
+          html += `
+            <div class="p-3 border border-gray-200 rounded-lg hover:shadow-md transition-shadow">
+              <div class="flex justify-between items-start mb-2">
+                <div>
+                  <h3 class="font-bold text-lg">${product.name}</h3>
+                  <p class="text-sm text-gray-500">编码：${product.code}</p>
+                </div>
+                <div class="flex space-x-2">
+                  <button onclick="editProduct('${product.id}')" class="text-primary">
+                    <i class="fa fa-edit"></i>
+                  </button>
+                  <button onclick="deleteProduct('${product.id}')" class="text-danger">
+                    <i class="fa fa-trash"></i>
+                  </button>
+                </div>
+              </div>
+              
+              <div class="grid grid-cols-2 gap-2 mb-2">
+                <div>
+                  <p class="text-xs text-gray-500">规格型号</p>
+                  <p>${product.specification || '-'}</p>
+                </div>
+                <div>
+                  <p class="text-xs text-gray-500">产品类别</p>
+                  <p>${product.category || '-'}</p>
+                </div>
+                <div>
+                  <p class="text-xs text-gray-500">基准单位</p>
+                  <p>${product.baseUnit}</p>
+                </div>
+                <div>
+                  <p class="text-xs text-gray-500">供应商</p>
+                  <p>${supplier.name}</p>
+                </div>
+                ${product.usagePerTime > 0 || product.usagePerDay > 0 ? `
+                  <div>
+                    <p class="text-xs text-gray-500">每次用量</p>
+                    <p>${product.usagePerTime || 0}${product.baseUnit}</p>
+                  </div>
+                  <div>
+                    <p class="text-xs text-gray-500">每日次数</p>
+                    <p>${product.usagePerDay || 0}次</p>
+                  </div>
+                ` : ''}
+              </div>
+              
+              <div class="flex justify-between items-center">
+                <div>
+                  <p class="text-xs text-gray-500">当前库存 / 最低库存</p>
+                  <p class="${stockStatus} font-medium">${formatStockToUnits(product, true)} / ${product.minStock}${product.baseUnit}</p>
+                </div>
+                <span class="px-2 py-1 rounded-full text-xs ${
+                  stockStatus === 'stock-normal' ? 'bg-green-100 text-green-800' : 
+                  stockStatus === 'stock-warning' ? 'bg-yellow-100 text-yellow-800' : 
+                  'bg-red-100 text-red-800'
+                }">${statusText}</span>
+              </div>
+            </div>
+          `;
+        });
+        
+        container.innerHTML = html;
+        
+      } catch (error) {
+        console.error('更新产品列表失败:', error);
+      }
+    }
+    
+    // 更新供应商列表
+    function updateSupplierList(searchTerm = '') {
+      try {
+        const suppliers = getStoredData(STORAGE_KEYS.suppliers) || [];
+        const container = document.getElementById('supplier-list');
+        
+        if (suppliers.length === 0) {
+          container.innerHTML = '<div class="text-center text-gray-500 py-4">暂无供应商数据</div>';
+          return;
+        }
+        
+        // 过滤供应商
+        const filteredSuppliers = suppliers.filter(supplier => {
+          if (!searchTerm) return true;
+          return supplier.name.toLowerCase().includes(searchTerm) || 
+                 supplier.contact.toLowerCase().includes(searchTerm) ||
+                 supplier.phone.includes(searchTerm);
+        });
+        
+        if (filteredSuppliers.length === 0) {
+          container.innerHTML = '<div class="text-center text-gray-500 py-4">未找到匹配的供应商</div>';
+          return;
+        }
+        
+        // 生成供应商列表HTML
+        let html = '';
+        filteredSuppliers.forEach(supplier => {
+          html += `
+            <div class="p-3 border border-gray-200 rounded-lg hover:shadow-md transition-shadow">
+              <div class="flex justify-between items-start mb-2">
+                <h3 class="font-bold text-lg">${supplier.name}</h3>
+                <div class="flex space-x-2">
+                  <button onclick="editSupplier('${supplier.id}')" class="text-primary">
+                    <i class="fa fa-edit"></i>
+                  </button>
+                  <button onclick="deleteSupplier('${supplier.id}')" class="text-danger">
+                    <i class="fa fa-trash"></i>
+                  </button>
+                </div>
+              </div>
+              
+              <div class="grid grid-cols-2 gap-2 mb-2">
+                <div>
+                  <p class="text-xs text-gray-500">联系人</p>
+                  <p>${supplier.contact || '-'}</p>
+                </div>
+                <div>
+                  <p class="text-xs text-gray-500">联系电话</p>
+                  <p>${supplier.phone || '-'}</p>
+                </div>
+                <div class="col-span-2">
+                  <p class="text-xs text-gray-500">地址</p>
+                  <p>${supplier.address || '-'}</p>
+                </div>
+              </div>
+              
+              ${supplier.remarks ? `
+                <div>
+                  <p class="text-xs text-gray-500">备注</p>
+                  <p class="text-sm">${supplier.remarks}</p>
+                </div>
+              ` : ''}
+            </div>
+          `;
+        });
+        
+        container.innerHTML = html;
+        
+        // 更新下拉选择框
+        populateSupplierSelect();
+        
+      } catch (error) {
+        console.error('更新供应商列表失败:', error);
+      }
+    }
+    
+    // 更新领用人列表
+    function updateUserList(searchTerm = '') {
+      try {
+        const users = getStoredData(STORAGE_KEYS.users) || [];
+        const container = document.getElementById('user-list');
+        
+        if (users.length === 0) {
+          container.innerHTML = '<div class="text-center text-gray-500 py-4">暂无领用人数据</div>';
+          return;
+        }
+        
+        // 过滤领用人
+        const filteredUsers = users.filter(user => {
+          if (!searchTerm) return true;
+          return user.name.toLowerCase().includes(searchTerm) || 
+                 user.department.toLowerCase().includes(searchTerm) ||
+                 user.phone.includes(searchTerm);
+        });
+        
+        if (filteredUsers.length === 0) {
+          container.innerHTML = '<div class="text-center text-gray-500 py-4">未找到匹配的领用人</div>';
+          return;
+        }
+        
+        // 生成领用人列表HTML
+        let html = '';
+        filteredUsers.forEach(user => {
+          html += `
+            <div class="p-3 border border-gray-200 rounded-lg hover:shadow-md transition-shadow">
+              <div class="flex justify-between items-start mb-2">
+                <h3 class="font-bold text-lg">${user.name}</h3>
+                <div class="flex space-x-2">
+                  <button onclick="editUser('${user.id}')" class="text-primary">
+                    <i class="fa fa-edit"></i>
+                  </button>
+                  <button onclick="deleteUser('${user.id}')" class="text-danger">
+                    <i class="fa fa-trash"></i>
+                  </button>
+                </div>
+              </div>
+              
+              <div class="grid grid-cols-2 gap-2 mb-2">
+                <div>
+                  <p class="text-xs text-gray-500">部门</p>
+                  <p>${user.department || '-'}</p>
+                </div>
+                <div>
+                  <p class="text-xs text-gray-500">联系电话</p>
+                  <p>${user.phone || '-'}</p>
+                </div>
+              </div>
+              
+              ${user.remarks ? `
+                <div>
+                  <p class="text-xs text-gray-500">备注</p>
+                  <p class="text-sm">${user.remarks}</p>
+                </div>
+              ` : ''}
+            </div>
+          `;
+        });
+        
+        container.innerHTML = html;
+        
+        // 更新下拉选择框
+        populateUserSelect();
+        
+      } catch (error) {
+        console.error('更新领用人列表失败:', error);
+      }
+    }
+    
+    // 更新单位列表
+    function updateUnitList() {
+      try {
+        const units = getStoredData(STORAGE_KEYS.units) || [];
+        const container = document.getElementById('unit-list');
+        
+        if (units.length === 0) {
+          container.innerHTML = '<div class="text-center text-gray-500 py-4">暂无单位数据</div>';
+          return;
+        }
+        
+        // 生成单位列表HTML
+        let html = '';
+        units.forEach(unit => {
+          html += `
+            <div class="p-3 border border-gray-200 rounded-lg hover:shadow-md transition-shadow">
+              <div class="flex justify-between items-start mb-2">
+                <h3 class="font-bold text-lg">${unit.name}</h3>
+                <div class="flex space-x-2">
+                  <button onclick="editUnit('${unit.id}')" class="text-primary">
+                    <i class="fa fa-edit"></i>
+                  </button>
+                  <button onclick="deleteUnit('${unit.id}')" class="text-danger">
+                    <i class="fa fa-trash"></i>
+                  </button>
+                </div>
+              </div>
+              
+              <div class="grid grid-cols-1 gap-2">
+                <div>
+                  <p class="text-xs text-gray-500">单位类别</p>
+                  <p>${unit.category}</p>
+                </div>
+              </div>
+            </div>
+          `;
+        });
+        
+        container.innerHTML = html;
+        
+        // 更新所有单位下拉选择框
+        populateAllUnitSelects();
+        
+      } catch (error) {
+        console.error('更新单位列表失败:', error);
+      }
+    }
+    
+    // 更新库存列表
+    function updateStockList(filter = 'all', searchTerm = '') {
+      try {
+        const products = getStoredData(STORAGE_KEYS.products) || [];
+        const container = document.getElementById('stock-list');
+        
+        if (products.length === 0) {
+          container.innerHTML = '<div class="text-center text-gray-500 py-4">暂无库存数据</div>';
+          return;
+        }
+        
+        // 过滤产品
+        let filteredProducts = [...products];
+        
+        // 按状态过滤
+        if (filter !== 'all') {
+          filteredProducts = filteredProducts.filter(product => {
+            if (filter === 'normal') {
+              return product.stock >= product.minStock && product.stock > 0;
+            } else if (filter === 'warning') {
+              return product.stock > 0 && product.stock < product.minStock;
+            } else if (filter === 'danger') {
+              return product.stock <= 0;
+            }
+            return true;
+          });
+        }
+        
+        // 按搜索词过滤
+        if (searchTerm) {
+          filteredProducts = filteredProducts.filter(product => {
+            return product.name.toLowerCase().includes(searchTerm) || 
+                   product.code.toLowerCase().includes(searchTerm) ||
+                   product.specification.toLowerCase().includes(searchTerm);
+          });
+        }
+        
+        if (filteredProducts.length === 0) {
+          container.innerHTML = '<div class="text-center text-gray-500 py-4">未找到匹配的库存数据</div>';
+          return;
+        }
+        
+        // 生成库存列表HTML
+        let html = '';
+        filteredProducts.forEach(product => {
+          // 库存状态
+          let stockStatus = 'stock-normal';
+          let statusText = '库存充足';
+          if (product.stock <= 0) {
+            stockStatus = 'stock-danger';
+            statusText = '库存不足';
+          } else if (product.stock < product.minStock) {
+            stockStatus = 'stock-warning';
+            statusText = '库存预警';
+          }
+          
+          html += `
+            <div class="p-3 border border-gray-200 rounded-lg hover:shadow-md transition-shadow">
+              <div class="flex justify-between items-start mb-2">
+                <div>
+                  <h3 class="font-bold text-lg">${product.name}</h3>
+                  <p class="text-sm text-gray-500">编码：${product.code}</p>
+                </div>
+                <span class="px-2 py-1 rounded-full text-xs ${
+                  stockStatus === 'stock-normal' ? 'bg-green-100 text-green-800' : 
+                  stockStatus === 'stock-warning' ? 'bg-yellow-100 text-yellow-800' : 
+                  'bg-red-100 text-red-800'
+                }">${statusText}</span>
+              </div>
+              
+              <div class="grid grid-cols-2 gap-2 mb-2">
+                <div>
+                  <p class="text-xs text-gray-500">规格型号</p>
+                  <p>${product.specification || '-'}</p>
+                </div>
+                <div>
+                  <p class="text-xs text-gray-500">产品类别</p>
+                  <p>${product.category || '-'}</p>
+                </div>
+              </div>
+              
+              <div class="mb-2">
+                <p class="text-xs text-gray-500">当前库存 / 最低库存</p>
+                <p class="${stockStatus} font-medium">${formatStockToUnits(product, true)} / ${product.minStock}${product.baseUnit}</p>
+              </div>
+              
+              ${product.usagePerTime > 0 || product.usagePerDay > 0 ? `
+                <div class="bg-blue-50 p-2 rounded mb-2">
+                  <p class="text-xs text-gray-500 mb-1">使用情况</p>
+                  <div class="grid grid-cols-2 gap-2 text-sm">
+                    <div>
+                      <span class="text-gray-600">每次用量：</span>
+                      <span class="font-medium">${product.usagePerTime || 0}${product.baseUnit}</span>
+                    </div>
+                    <div>
+                      <span class="text-gray-600">每日次数：</span>
+                      <span class="font-medium">${product.usagePerDay || 0}次</span>
+                    </div>
+                    ${product.usagePerDay > 0 && product.stock > 0 ? `
+                      <div class="col-span-2">
+                        <span class="text-gray-600">可用：</span>
+                        <span class="font-medium text-primary">${Math.floor(product.stock / (product.usagePerTime * product.usagePerDay))}天</span>
+                        <span class="text-gray-500 text-xs ml-2">（约${Math.floor(product.stock / product.usagePerTime)}次）</span>
+                      </div>
+                    ` : ''}
+                  </div>
+                </div>
+              ` : ''}
+              
+              ${product.unitConversions && Object.keys(product.unitConversions).length > 0 ? `
+                <div class="bg-gray-50 p-2 rounded mb-2">
+                  <p class="text-xs text-gray-500 mb-1">单位换算</p>
+                  <div class="flex flex-wrap gap-2 text-sm">
+                    ${Object.entries(product.unitConversions).map(([unit, value]) => `
+                      <span class="bg-white px-2 py-1 rounded border">
+                        ${(product.stock / value).toFixed(2)}${unit}
+                      </span>
+                    `).join('')}
+                  </div>
+                </div>
+              ` : ''}
+              
+              <div class="flex justify-between items-center pt-2 border-t border-gray-100">
+                <div class="flex space-x-2">
+                  <button onclick="navigateTo('inbound-page');document.getElementById('inbound-product-code').value='${product.code}';fillProductInfo('inbound', '${product.code}')" class="text-primary text-sm">
+                    <i class="fa fa-arrow-down mr-1"></i> 入库
+                  </button>
+                  <button onclick="navigateTo('outbound-page');document.getElementById('outbound-product-code').value='${product.code}';fillProductInfo('outbound', '${product.code}')" class="text-accent text-sm">
+                    <i class="fa fa-arrow-up mr-1"></i> 出库
+                  </button>
+                </div>
+              </div>
+            </div>
+          `;
+        });
+        
+        container.innerHTML = html;
+        
+      } catch (error) {
+        console.error('更新库存列表失败:', error);
+      }
+    }
+    
+    // 更新预警页面
+    function updateAlertPage() {
+      try {
+        const products = getStoredData(STORAGE_KEYS.products) || [];
+        const container = document.getElementById('alert-list-page');
+        
+        // 筛选出库存预警的产品
+        const alertProducts = products.filter(product => product.stock < product.minStock);
+        
+        if (alertProducts.length === 0) {
+          container.innerHTML = '<div class="text-center text-gray-500 py-4">暂无库存预警</div>';
+          return;
+        }
+        
+        // 生成预警列表HTML
+        let html = '';
+        alertProducts.forEach(product => {
+          const shortage = product.minStock - product.stock;
+          let alertLevel = 'warning';
+          let levelText = '库存偏低';
+          
+          if (product.stock <= 0) {
+            alertLevel = 'danger';
+            levelText = '库存耗尽';
+          }
+          
+          html += `
+            <div class="p-3 border border-gray-200 rounded-lg hover:shadow-md transition-shadow">
+              <div class="flex justify-between items-start mb-2">
+                <h3 class="font-bold text-lg">${product.name}</h3>
+                <span class="px-2 py-1 rounded-full text-xs ${
+                  alertLevel === 'warning' ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800'
+                }">${levelText}</span>
+              </div>
+              
+              <div class="grid grid-cols-2 gap-2 mb-2">
+                <div>
+                  <p class="text-xs text-gray-500">产品编码</p>
+                  <p>${product.code}</p>
+                </div>
+                <div>
+                  <p class="text-xs text-gray-500">规格型号</p>
+                  <p>${product.specification || '-'}</p>
+                </div>
+                <div>
+                  <p class="text-xs text-gray-500">当前库存</p>
+                  <p class="${alertLevel === 'warning' ? 'text-warning' : 'text-danger'} font-medium">${formatStockToUnits(product, true)}</p>
+                </div>
+                <div>
+                  <p class="text-xs text-gray-500">安全库存</p>
+                  <p>${product.minStock}${product.baseUnit}</p>
+                </div>
+              </div>
+              
+              <div class="pt-2 border-t border-gray-100">
+                <p class="text-sm ${alertLevel === 'warning' ? 'text-warning' : 'text-danger'}">
+                  <i class="fa fa-exclamation-circle mr-1"></i>
+                  库存短缺 ${shortage}${product.baseUnit}，请及时补货
+                </p>
+              </div>
+              
+              <div class="flex justify-end mt-3 space-x-2">
+                <button onclick="navigateTo('inbound-page');document.getElementById('inbound-product-code').value='${product.code}';fillProductInfo('inbound', '${product.code}')" class="px-3 py-1 bg-primary text-white rounded-md text-sm">
+                  <i class="fa fa-arrow-down mr-1"></i> 立即入库
+                </button>
+              </div>
+            </div>
+          `;
+        });
+        
+        container.innerHTML = html;
+        
+      } catch (error) {
+        console.error('更新预警页面失败:', error);
+      }
+    }
+    
+    // 填充产品信息到表单
+    function fillProductInfo(type, productCode) {
+      try {
+        const products = getStoredData(STORAGE_KEYS.products) || [];
+        const product = products.find(p => p.code === productCode);
+        
+        const prefix = type === 'inbound' ? 'inbound' : 'outbound';
+        
+        // 清空表单
+        document.getElementById(`${prefix}-product-name`).value = '';
+        document.getElementById(`${prefix}-product-spec`).value = '';
+        
+        if (type === 'outbound') {
+          document.getElementById(`${prefix}-stock`).value = '';
+        }
+        
+        if (!product) {
+          // 清空单位下拉框
+          const unitSelect = document.getElementById(`${prefix}-unit`);
+          unitSelect.innerHTML = '<option value="">请选择单位</option>';
+          showToast('未找到该产品');
+          return;
+        }
+        
+        // 填充产品信息
+        document.getElementById(`${prefix}-product-name`).value = product.name;
+        document.getElementById(`${prefix}-product-spec`).value = product.specification || '';
+        
+        if (type === 'outbound') {
+          document.getElementById(`${prefix}-stock`).value = formatStockToUnits(product);
+        }
+        
+        // 设置单位下拉框 - 显示产品所有可用单位（包括基准单位和换算单位）
+        const unitSelect = document.getElementById(`${prefix}-unit`);
+        // 清空现有选项
+        unitSelect.innerHTML = '<option value="">请选择单位</option>';
+        
+        // 收集所有可用单位（基准单位和换算单位）
+        const allUnits = new Set();
+        
+        // 添加基准单位
+        if (product.baseUnit) {
+          allUnits.add(product.baseUnit);
+        }
+        
+        // 添加换算单位
+        if (product.unitConversions) {
+          Object.keys(product.unitConversions).forEach(unitName => {
+            allUnits.add(unitName);
+          });
+        }
+        
+        // 添加到下拉框
+        allUnits.forEach(unitName => {
+          const option = document.createElement('option');
+          option.value = unitName;
+          
+          // 显示换算关系（如：盒 = 100个）
+          let displayText = unitName;
+          if (product.unitConversions && product.unitConversions[unitName] && unitName !== product.baseUnit) {
+            displayText = `${unitName} (${product.unitConversions[unitName]}${product.baseUnit})`;
+          }
+          
+          option.textContent = displayText;
+          unitSelect.appendChild(option);
+        });
+        
+      } catch (error) {
+        console.error('填充产品信息失败:', error);
+        showToast('获取产品信息失败');
+      }
+    }
+    
+    // 提交入库单
+    function submitInbound() {
+      try {
+        // 获取表单数据
+        const code = document.getElementById('inbound-code').value;
+        const date = document.getElementById('inbound-date').value;
+        const supplierId = document.getElementById('inbound-supplier').value;
+        const productCode = document.getElementById('inbound-product-code').value;
+        const quantity = parseFloat(document.getElementById('inbound-quantity').value) || 0;
+        const unit = document.getElementById('inbound-unit').value;
+        const price = parseFloat(document.getElementById('inbound-price').value) || 0;
+        const remarks = document.getElementById('inbound-remarks').value;
+        
+        // 验证必填项
+        if (!date) {
+          showToast('请选择入库日期');
+          return;
+        }
+        
+        if (!supplierId) {
+          showToast('请选择供应商');
+          return;
+        }
+        
+        if (!productCode) {
+          showToast('请输入产品编码');
+          return;
+        }
+        
+        if (quantity <= 0) {
+          showToast('请输入有效的入库数量');
+          return;
+        }
+        
+        if (!unit) {
+          showToast('请选择单位');
+          return;
+        }
+        
+        // 获取产品信息
+        const products = getStoredData(STORAGE_KEYS.products) || [];
+        const product = products.find(p => p.code === productCode);
+        
+        if (!product) {
+          showToast('产品不存在');
+          return;
+        }
+        
+        // 获取供应商信息
+        const suppliers = getStoredData(STORAGE_KEYS.suppliers) || [];
+        const supplier = suppliers.find(s => s.id === supplierId);
+        
+        if (!supplier) {
+          showToast('供应商不存在');
+          return;
+        }
+        
+        // 计算基准单位数量
+        const baseQuantity = quantity * (product.unitConversions[unit] || 1);
+        
+        // 更新产品库存
+        product.stock = (product.stock || 0) + baseQuantity;
+        localStorage.setItem(STORAGE_KEYS.products, JSON.stringify(products));
+        
+        // 创建入库记录
+        const inboundRecords = getStoredData(STORAGE_KEYS.inboundRecords) || [];
+        
+        const newRecord = {
+          id: `in-${Date.now()}`,
+          code: code,
+          date: new Date(date).toISOString(),
+          supplierId: supplierId,
+          supplierName: supplier.name,
+          productId: product.id,
+          productName: product.name,
+          productCode: product.code,
+          specification: product.specification,
+          quantity: quantity,
+          unit: unit,
+          baseQuantity: baseQuantity,
+          price: price,
+          totalPrice: price * quantity,
+          createdBy: '管理员',
+          remarks: remarks,
+          stockAfter: product.stock
+        };
+        
+        inboundRecords.push(newRecord);
+        localStorage.setItem(STORAGE_KEYS.inboundRecords, JSON.stringify(inboundRecords));
+        
+        // 生成新的单据编号
+        generateInboundCode();
+        
+        // 重置表单
+        document.getElementById('inbound-form').reset();
+        document.getElementById('inbound-date').value = new Date().toISOString().split('T')[0];
+        
+        // 更新UI
+        updateHomePage();
+        updateStockList();
+        updateAlertPage();
+        
+        showToast('入库成功');
+        
+        // 跳转到首页
+        setTimeout(() => {
+          navigateTo('home-page');
+        }, 1500);
+        
+      } catch (error) {
+        console.error('提交入库单失败:', error);
+        showToast('入库失败：' + error.message);
+      }
+    }
+    
+    // 提交出库单
+    function submitOutbound() {
+      try {
+        // 获取表单数据
+        const code = document.getElementById('outbound-code').value;
+        const date = document.getElementById('outbound-date').value;
+        const userId = document.getElementById('outbound-user').value;
+        const productCode = document.getElementById('outbound-product-code').value;
+        const quantity = parseFloat(document.getElementById('outbound-quantity').value) || 0;
+        const unit = document.getElementById('outbound-unit').value;
+        const remarks = document.getElementById('outbound-remarks').value;
+        
+        // 验证必填项
+        if (!date) {
+          showToast('请选择出库日期');
+          return;
+        }
+        
+        if (!userId) {
+          showToast('请选择领用人');
+          return;
+        }
+        
+        if (!productCode) {
+          showToast('请输入产品编码');
+          return;
+        }
+        
+        if (quantity <= 0) {
+          showToast('请输入有效的出库数量');
+          return;
+        }
+        
+        if (!unit) {
+          showToast('请选择单位');
+          return;
+        }
+        
+        // 获取产品信息
+        const products = getStoredData(STORAGE_KEYS.products) || [];
+        const product = products.find(p => p.code === productCode);
+        
+        if (!product) {
+          showToast('产品不存在');
+          return;
+        }
+        
+        // 获取领用人信息
+        const users = getStoredData(STORAGE_KEYS.users) || [];
+        const user = users.find(u => u.id === userId);
+        
+        if (!user) {
+          showToast('领用人不存在');
+          return;
+        }
+        
+        // 计算基准单位数量
+        const baseQuantity = quantity * (product.unitConversions[unit] || 1);
+        
+        // 检查库存是否充足
+        if (product.stock < baseQuantity) {
+          showToast('库存不足，当前库存：' + product.stock + product.baseUnit);
+          return;
+        }
+        
+        // 更新产品库存
+        product.stock = product.stock - baseQuantity;
+        localStorage.setItem(STORAGE_KEYS.products, JSON.stringify(products));
+        
+        // 创建出库记录
+        const outboundRecords = getStoredData(STORAGE_KEYS.outboundRecords) || [];
+        
+        const newRecord = {
+          id: `out-${Date.now()}`,
+          code: code,
+          date: new Date(date).toISOString(),
+          userId: userId,
+          userName: user.name,
+          userDepartment: user.department || '',
+          productId: product.id,
+          productName: product.name,
+          productCode: product.code,
+          specification: product.specification,
+          quantity: quantity,
+          unit: unit,
+          baseQuantity: baseQuantity,
+          createdBy: '管理员',
+          remarks: remarks,
+          stockAfter: product.stock
+        };
+        
+        outboundRecords.push(newRecord);
+        localStorage.setItem(STORAGE_KEYS.outboundRecords, JSON.stringify(outboundRecords));
+        
+        // 生成新的单据编号
+        generateOutboundCode();
+        
+        // 重置表单
+        document.getElementById('outbound-form').reset();
+        document.getElementById('outbound-date').value = new Date().toISOString().split('T')[0];
+        
+        // 更新UI
+        updateHomePage();
+        updateStockList();
+        updateAlertPage();
+        
+        showToast('出库成功');
+        
+        // 跳转到首页
+        setTimeout(() => {
+          navigateTo('home-page');
+        }, 1500);
+        
+      } catch (error) {
+        console.error('提交出库单失败:', error);
+        showToast('出库失败：' + error.message);
+      }
+    }
+    
+    // 生成入库单据编号
+    function generateInboundCode() {
+      try {
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = (now.getMonth() + 1).toString().padStart(2, '0');
+        const day = now.getDate().toString().padStart(2, '0');
+        
+        // 获取当天的入库记录数量
+        const inboundRecords = getStoredData(STORAGE_KEYS.inboundRecords) || [];
+        const today = `${year}-${month}-${day}`;
+        
+        let count = 0;
+        inboundRecords.forEach(record => {
+          const recordDate = new Date(record.date).toISOString().split('T')[0];
+          if (recordDate === today) {
+            count++;
+          }
+        });
+        
+        // 编号格式：RK + 年月日 + 序号（3位）
+        const sequence = (count + 1).toString().padStart(3, '0');
+        const code = `RK${year}${month}${day}${sequence}`;
+        
+        document.getElementById('inbound-code').value = code;
+        
+      } catch (error) {
+        console.error('生成入库编号失败:', error);
+        // 使用备用编号
+        const code = `RK${Date.now()}`;
+        document.getElementById('inbound-code').value = code;
+      }
+    }
+    
+    // 生成出库单据编号
+    function generateOutboundCode() {
+      try {
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = (now.getMonth() + 1).toString().padStart(2, '0');
+        const day = now.getDate().toString().padStart(2, '0');
+        
+        // 获取当天的出库记录数量
+        const outboundRecords = getStoredData(STORAGE_KEYS.outboundRecords) || [];
+        const today = `${year}-${month}-${day}`;
+        
+        let count = 0;
+        outboundRecords.forEach(record => {
+          const recordDate = new Date(record.date).toISOString().split('T')[0];
+          if (recordDate === today) {
+            count++;
+          }
+        });
+        
+        // 编号格式：CK + 年月日 + 序号（3位）
+        const sequence = (count + 1).toString().padStart(3, '0');
+        const code = `CK${year}${month}${day}${sequence}`;
+        
+        document.getElementById('outbound-code').value = code;
+        
+      } catch (error) {
+        console.error('生成出库编号失败:', error);
+        // 使用备用编号
+        const code = `CK${Date.now()}`;
+        document.getElementById('outbound-code').value = code;
+      }
+    }
+    
+    // 工具函数 - 获取本地存储数据
+    function getStoredData(key) {
+      try {
+        const data = localStorage.getItem(key);
+        return data ? JSON.parse(data) : [];
+      } catch (error) {
+        console.error(`获取${key}数据失败:`, error);
+        return [];
+      }
+    }
+    
+    // 工具函数 - 格式化库存为多级单位显示（如：xx盒xx板xx片）
+    function formatStockToUnits(product, showMinUnit = false) {
+      try {
+        if (!product || product.stock === undefined || product.stock === null) {
+          return '0';
+        }
+        
+        const stock = product.stock;
+        const baseUnit = product.baseUnit || '个';
+        const conversions = product.unitConversions || {};
+        
+        // 收集所有单位（包括基准单位）
+        const unitList = [];
+        
+        // 添加所有单位（基准单位值为1）
+        unitList.push({
+          unit: baseUnit,
+          value: 1
+        });
+        
+        // 添加其他换算单位
+        Object.keys(conversions).forEach(unit => {
+          if (unit !== baseUnit && conversions[unit] > 0) {
+            unitList.push({
+              unit: unit,
+              value: conversions[unit]
+            });
+          }
+        });
+        
+        // 按换算率从大到小排序（所有单位都按这个规则显示）
+        unitList.sort((a, b) => b.value - a.value);
+        
+        // 如果只有基准单位，直接返回
+        if (unitList.length <= 1) {
+          return `${stock}${baseUnit}`;
+        }
+        
+        // 计算各级单位的数量
+        let remaining = stock;
+        const result = [];
+        
+        for (let i = 0; i < unitList.length; i++) {
+          const { unit, value } = unitList[i];
+          const count = Math.floor(remaining / value);
+          
+          // 只保留数量大于0的单位，或者如果是最后一个单位且还没有结果（库存为0时）
+          if (count > 0) {
+            result.push({
+              unit: unit,
+              count: count
+            });
+          }
+          
+          remaining = remaining % value;
+        }
+        
+        // 如果没有结果（库存为0），显示0和基准单位
+        if (result.length === 0) {
+          return `0${baseUnit}`;
+        }
+        
+        // 格式化为字符串（如："xx盒xx板xx片"）
+        let displayStr = result.map(item => `${item.count}${item.unit}`).join('');
+        
+        // 如果需要同时显示最小单位
+        if (showMinUnit && result.length > 1) {
+          displayStr += `（${stock}${baseUnit}）`;
+        }
+        
+        return displayStr;
+        
+      } catch (error) {
+        console.error('格式化库存单位失败:', error);
+        return product ? `${product.stock}${product.baseUnit || '个'}` : '0';
+      }
+    }
+    
+    // 工具函数 - 显示提示消息
+    function showToast(message) {
+      const toast = document.getElementById('toast');
+      const toastMessage = document.getElementById('toast-message');
+      
+      toastMessage.textContent = message;
+      toast.classList.remove('hidden');
+      toast.classList.add('fade-in');
+      
+      setTimeout(() => {
+        toast.classList.add('hidden');
+        toast.classList.remove('fade-in');
+      }, 3000);
+    }
+    
+    // 模态框相关函数
+    function showAddProductModal() {
+      editingProductId = null;
+      document.getElementById('add-product-form').reset();
+      document.getElementById('add-product-modal').classList.remove('hidden');
+      populateUnitSelect('product-base');
+      populateUnitSelect('conversion');
+    }
+    
+    function hideAddProductModal() {
+      document.getElementById('add-product-modal').classList.add('hidden');
+    }
+    
+    function showAddSupplierModal() {
+      document.getElementById('add-supplier-form').reset();
+      document.getElementById('add-supplier-modal').classList.remove('hidden');
+    }
+    
+    function hideAddSupplierModal() {
+      document.getElementById('add-supplier-modal').classList.add('hidden');
+    }
+    
+    function showAddUserModal() {
+      document.getElementById('add-user-form').reset();
+      document.getElementById('add-user-modal').classList.remove('hidden');
+    }
+    
+    function hideAddUserModal() {
+      document.getElementById('add-user-modal').classList.add('hidden');
+    }
+    
+    function showAddUnitModal() {
+      document.getElementById('add-unit-form').reset();
+      document.getElementById('add-unit-modal').classList.remove('hidden');
+      populateUnitSelect('unit-base');
+    }
+    
+    function hideAddUnitModal() {
+      document.getElementById('add-unit-modal').classList.add('hidden');
+    }
+    
+    // 打开扫码模态框
+    function openScanModal(mode) {
+      scanMode = mode;
+      document.getElementById('scan-modal').classList.remove('hidden');
+      
+      // 初始化扫码功能
+      initScanner();
+    }
+    
+    // 关闭扫码模态框
+    function closeScanModal() {
+      document.getElementById('scan-modal').classList.add('hidden');
+      
+      // 停止持续识别定时器
+      stopContinuousScan();
+      
+      // 停止视频流（释放摄像头资源）
+      const videoElement = document.getElementById('scan-video');
+      if (videoElement && videoElement.srcObject) {
+        const tracks = videoElement.srcObject.getTracks();
+        tracks.forEach(track => track.stop());
+        videoElement.srcObject = null;
+        videoElement.pause();
+      }
+      
+      // 重置界面
+      document.getElementById('camera-preview-area').style.display = 'none';
+      document.getElementById('scan-icon-area').style.display = 'block';
+    }
+    
+    // 显示库存预警弹窗
+    function showStockAlertModal() {
+      // 检查是否开启了弹窗提示
+      const alertPopupEnabled = localStorage.getItem('alertPopupEnabled') !== 'false';
+      if (!alertPopupEnabled) return;
+      
+      const products = getStoredData(STORAGE_KEYS.products) || [];
+      const alertProducts = products.filter(product => product.stock < product.minStock);
+      
+      if (alertProducts.length === 0) {
+        return;
+      }
+      
+      const alertList = document.getElementById('stock-alert-list');
+      let html = '';
+      
+      alertProducts.forEach(product => {
+        const shortage = product.minStock - product.stock;
+        const dailyUsage = product.usagePerTime * product.usagePerDay;
+        const availableDays = dailyUsage > 0 ? Math.floor(product.stock / dailyUsage) : 0;
+        const availableTimes = product.usagePerTime > 0 ? Math.floor(product.stock / product.usagePerTime) : 0;
+        
+        html += `
+          <div class="alert-item">
+            <p class="font-medium text-danger">${product.name}</p>
+            <p class="text-sm text-gray-600">
+              您的 <strong>${product.name}</strong> 还有 <strong class="text-danger">${formatStockToUnits(product, true)}</strong>
+            </p>
+            ${availableDays > 0 ? `<p class="text-sm text-primary">预计可使用 <strong>${availableDays}天</strong>（约${availableTimes}次）</p>` : ''}
+            <p class="text-sm text-warning mt-1">请及时采购入库！</p>
+            <div class="flex gap-2 mt-2">
+              <button onclick="closeStockAlertModal();navigateTo('inbound-page');document.getElementById('inbound-product-code').value='${product.code}';fillProductInfo('inbound', '${product.code}')" class="text-xs px-3 py-1 bg-primary text-white rounded">立即入库</button>
+            </div>
+          </div>
+        `;
+      });
+      
+      alertList.innerHTML = html;
+      document.getElementById('stock-alert-modal').classList.remove('hidden');
+      
+      // 尝试发送系统通知
+      sendSystemNotification(alertProducts);
+    }
+    
+    // 关闭库存预警弹窗
+    function closeStockAlertModal() {
+      document.getElementById('stock-alert-modal').classList.add('hidden');
+    }
+    
+    // 清空库存预警消息
+    function clearStockAlertMessages() {
+      if (confirm('确定要清空所有预警消息吗？')) {
+        const alertList = document.getElementById('stock-alert-list');
+        alertList.innerHTML = '<div class="text-center text-gray-500 py-4">暂无预警消息</div>';
+        
+        showToast('预警消息已清空');
+        closeStockAlertModal();
+      }
+    }
+    
+    // 全局存储扫码结果
+                let scannedCode = '';
+                
+    // 初始化扫码器
+    function initScanner() {
+      // 重置界面状态
+      document.getElementById('camera-preview-area').style.display = 'none';
+      document.getElementById('scan-icon-area').style.display = 'block';
+    }
+    
+    // 启动实时扫码 - 使用QuaggaJS
+    function startRealTimeScan() {
+      try {
+        const videoElement = document.getElementById('scan-video');
+        const cameraStatus = document.getElementById('camera-status');
+        
+        showToast('正在启动实时扫码...');
+        cameraStatus.textContent = '正在启动摄像头...';
+        
+        // 显示摄像头预览区域
+        document.getElementById('camera-preview-area').style.display = 'block';
+        document.getElementById('scan-icon-area').style.display = 'none';
+        
+        // 使用QuaggaJS启动摄像头
+        Quagga.init({
+          inputStream: {
+            type: 'LiveStream',
+            constraints: {
+              width: { min: 640 },
+              height: { min: 480 },
+              facingMode: 'environment',  // 优先使用后置摄像头
+              aspectRatio: { min: 1, max: 2 }
+            },
+            area: {
+              top: '10%',
+              right: '10%',
+              bottom: '10%',
+              left: '10%'
+            }
+          },
+          decoder: {
+            readers: ['ean_reader', 'ean_8_reader', 'upc_reader']  // 专注于商品条码
+          },
+          locate: true
+        }, function(err) {
+          if (err) {
+            console.error('QuaggaJS初始化失败:', err);
+            cameraStatus.textContent = '启动失败';
+            document.getElementById('camera-preview-area').style.display = 'none';
+            document.getElementById('scan-icon-area').style.display = 'block';
+            showToast('实时扫码启动失败，请使用拍照识别');
+            return;
+          }
+          
+          cameraStatus.textContent = '摄像头已启动，对准条码自动识别';
+          showToast('摄像头已启动，正在识别...');
+          
+          // 启动识别
+          Quagga.start();
+        });
+        
+        // 设置识别成功回调
+        Quagga.onDetected(function(result) {
+          if (result.codeResult && result.codeResult.code) {
+            console.log('实时识别成功:', result.codeResult.code);
+            showToast('识别成功！');
+            scannedCode = result.codeResult.code;
+            
+            // 停止Quagga
+            Quagga.stop();
+            
+            closeScanModal();
+            showScanResultModal(scannedCode);
+          }
+        });
+          
+      } catch (error) {
+        console.error('启动实时扫码失败:', error);
+        showToast('实时扫码不可用，请使用拍照识别');
+      }
+    }
+    
+    function stopContinuousScan() {
+      // 停止Quagga
+      Quagga.stop();
+    }
+    
+    // 拍照识别 - 触发文件选择
+    function takePhoto() {
+      document.getElementById('camera-file-input').click();
+    }
+    
+    // 相册选择 - 触发文件选择
+    function selectFromGallery() {
+      document.getElementById('gallery-file-input').click();
+    }
+    
+    // 显示手动输入条码界面
+    function showManualInput() {
+      // 停止摄像头和识别
+      stopContinuousScan();
+      const videoElement = document.getElementById('scan-video');
+      if (videoElement && videoElement.srcObject) {
+        const tracks = videoElement.srcObject.getTracks();
+        tracks.forEach(track => track.stop());
+        videoElement.srcObject = null;
+        videoElement.pause();
+      }
+      
+      // 显示输入框
+      const code = prompt('请输入条码/二维码内容：');
+      if (code && code.trim()) {
+        scannedCode = code.trim();
+        closeScanModal();
+        showScanResultModal(scannedCode);
+      }
+    }
+    
+    // 图像预处理：增强对比度
+    function enhanceContrast(canvas) {
+      const ctx = canvas.getContext('2d');
+      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const data = imageData.data;
+      
+      // 计算直方图并拉伸对比度
+      let min = 255, max = 0;
+      for (let i = 0; i < data.length; i += 4) {
+        const avg = (data[i] + data[i + 1] + data[i + 2]) / 3;
+        if (avg < min) min = avg;
+        if (avg > max) max = avg;
+      }
+      
+      // 应用对比度拉伸
+      const range = max - min;
+      if (range > 0) {
+        for (let i = 0; i < data.length; i += 4) {
+          data[i] = Math.min(255, Math.max(0, ((data[i] - min) / range) * 255));
+          data[i + 1] = Math.min(255, Math.max(0, ((data[i + 1] - min) / range) * 255));
+          data[i + 2] = Math.min(255, Math.max(0, ((data[i + 2] - min) / range) * 255));
+        }
+      }
+      
+      const newCanvas = document.createElement('canvas');
+      newCanvas.width = canvas.width;
+      newCanvas.height = canvas.height;
+      const newCtx = newCanvas.getContext('2d');
+      newCtx.putImageData(imageData, 0, 0);
+      return newCanvas;
+    }
+    
+    // 图像预处理：转换为灰度图
+    function toGrayscale(canvas) {
+      const ctx = canvas.getContext('2d');
+      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const data = imageData.data;
+      
+      for (let i = 0; i < data.length; i += 4) {
+        const avg = (data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114);
+        data[i] = avg;
+        data[i + 1] = avg;
+        data[i + 2] = avg;
+      }
+      
+      const newCanvas = document.createElement('canvas');
+      newCanvas.width = canvas.width;
+      newCanvas.height = canvas.height;
+      const newCtx = newCanvas.getContext('2d');
+      newCtx.putImageData(imageData, 0, 0);
+      return newCanvas;
+    }
+    
+    // EAN-13专用优化识别函数
+    function decodeEAN13Special(canvas) {
+      const codeReader = new ZXing.BrowserMultiFormatReader();
+      
+      // 创建多个处理变体以提高识别率
+      const variants = [];
+      
+      // 原始图像
+      variants.push(canvas);
+      
+      // 增强对比度
+      try {
+        variants.push(enhanceContrast(canvas));
+      } catch (e) {}
+      
+      // 灰度化
+      try {
+        variants.push(toGrayscale(canvas));
+      } catch (e) {}
+      
+      // 高对比度增强
+      try {
+        variants.push(enhanceContrast(toGrayscale(canvas)));
+      } catch (e) {}
+      
+      // 尝试不同的阈值处理
+      try {
+        variants.push(applyThreshold(canvas, 128));
+        variants.push(applyThreshold(canvas, 180));
+      } catch (e) {}
+      
+      // EAN-13专用提示
+      const hints = new Map();
+      hints.set(ZXing.DecodeHintType.TRY_HARDER, true);
+      hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, [ZXing.BarcodeFormat.EAN_13]);
+      
+      // 逐个尝试识别
+      for (const variant of variants) {
+        try {
+          const luminanceSource = new ZXing.HTMLCanvasElementLuminanceSource(variant);
+          const binarizer = new ZXing.Common.HybridBinarizer(luminanceSource);
+          const binaryBitmap = new ZXing.BinaryBitmap(binarizer);
+          
+          const result = codeReader.decode(binaryBitmap, hints);
+          if (result && validateEAN13(result.text)) {
+            return result.text;
+          }
+        } catch (e) {
+          // 继续尝试下一个变体
+        }
+      }
+      
+      return null;
+    }
+    
+    // 应用阈值处理
+    function applyThreshold(canvas, threshold) {
+      const ctx = canvas.getContext('2d');
+      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const data = imageData.data;
+      
+      for (let i = 0; i < data.length; i += 4) {
+        const avg = (data[i] + data[i + 1] + data[i + 2]) / 3;
+        const value = avg > threshold ? 255 : 0;
+        data[i] = value;
+        data[i + 1] = value;
+        data[i + 2] = value;
+      }
+      
+      const newCanvas = document.createElement('canvas');
+      newCanvas.width = canvas.width;
+      newCanvas.height = canvas.height;
+      const newCtx = newCanvas.getContext('2d');
+      newCtx.putImageData(imageData, 0, 0);
+      return newCanvas;
+    }
+    
+    // EAN-13校验码验证
+    function validateEAN13(code) {
+      if (!/^\d{13}$/.test(code)) {
+        return false;
+      }
+      
+      const digits = code.split('').map(d => parseInt(d));
+      let sum = 0;
+      
+      for (let i = 0; i < 12; i++) {
+        sum += digits[i] * (i % 2 === 0 ? 1 : 3);
+      }
+      
+      const checkDigit = (10 - (sum % 10)) % 10;
+      return checkDigit === digits[12];
+    }
+    
+    // 手动触发扫码 - 提示用户使用拍照功能
+    function manualScan() {
+      showToast('请点击「拍照/相册」按钮，拍摄清晰的条码照片');
+    }
+    
+    // 从图片文件识别条码 - 使用ZXing基础API
+    function scanFromFile(fileInput) {
+      try {
+        const file = fileInput.files[0];
+        if (!file) {
+          return;
+        }
+        
+        showToast('正在识别图片...');
+        
+        // 创建图片并加载
+        const img = new Image();
+        img.onload = function() {
+          // 将图片绘制到canvas
+          const canvas = document.createElement('canvas');
+          canvas.width = img.width;
+          canvas.height = img.height;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0);
+          
+          // 使用QuaggaJS识别图片中的条码
+          if (typeof Quagga !== 'undefined') {
+            try {
+              console.log('开始识别图片...');
+              
+              // 设置超时
+              const timeout = setTimeout(() => {
+                console.error('识别超时');
+                showToast('识别超时，请重试');
+                Quagga.stop();
+              }, 5000);
+              
+              // 使用QuaggaJS解码图片
+              Quagga.decodeSingle({
+                src: img.src,
+                numOfWorkers: 1,
+                locate: true,
+                decoder: {
+                  readers: ['ean_reader', 'ean_8_reader', 'upc_reader']  // 专注于商品条码
+                }
+              }, function(result) {
+                clearTimeout(timeout);
+                
+                if (result && result.codeResult) {
+                  console.log('识别成功:', result.codeResult.code);
+                  showToast('识别成功！');
+                  scannedCode = result.codeResult.code;
+                  closeScanModal();
+                  showScanResultModal(scannedCode);
+                } else {
+                  console.error('识别失败');
+                  showToast('识别失败，请确保照片清晰、条码完整，或尝试手动输入');
+                }
+              });
+                
+            } catch (error) {
+              console.error('QuaggaJS识别错误:', error);
+              showToast('识别失败：' + error.message);
+            }
+          } else {
+            console.error('QuaggaJS库未加载');
+            showToast('扫码库加载失败，请刷新页面');
+          }
+        };
+        
+        img.onerror = function() {
+          showToast('图片加载失败');
+        };
+        
+        // 读取文件
+        const reader = new FileReader();
+        reader.onload = function(e) {
+          img.src = e.target.result;
+        };
+        reader.readAsDataURL(file);
+        
+        // 清空input
+        fileInput.value = '';
+        
+      } catch (error) {
+        console.error('文件处理失败:', error);
+        showToast('处理失败：' + error.message);
+      }
+    }
+    
+    // 显示扫码结果选择页面
+    function showScanResultModal(code) {
+      document.getElementById('scan-result-code').textContent = code;
+      
+      // 检查产品是否存在
+      const products = getStoredData(STORAGE_KEYS.products) || [];
+      const product = products.find(p => p.code === code);
+      
+      const resultProductDiv = document.getElementById('scan-result-product');
+      const noProductDiv = document.getElementById('scan-result-no-product');
+      const addBtn = document.getElementById('scan-result-add-btn');
+      
+      if (product) {
+        // 产品存在
+        resultProductDiv.classList.remove('hidden');
+        noProductDiv.classList.add('hidden');
+        addBtn.classList.add('hidden');
+        
+        document.getElementById('scan-result-product-name').textContent = product.name;
+        document.getElementById('scan-result-product-stock').textContent = `当前库存：${formatStockToUnits(product, true)}`;
+      } else {
+        // 产品不存在
+        resultProductDiv.classList.add('hidden');
+        noProductDiv.classList.remove('hidden');
+        addBtn.classList.remove('hidden');
+      }
+      
+      document.getElementById('scan-result-modal').classList.remove('hidden');
+    }
+    
+    // 关闭扫码结果模态框
+    function closeScanResultModal() {
+      document.getElementById('scan-result-modal').classList.add('hidden');
+      scannedCode = '';
+    }
+    
+    // 扫码结果：入库
+    function scanResultInbound() {
+      navigateTo('inbound-page');
+      document.getElementById('inbound-product-code').value = scannedCode;
+      fillProductInfo('inbound', scannedCode);
+      closeScanResultModal();
+    }
+    
+    // 扫码结果：出库
+    function scanResultOutbound() {
+      navigateTo('outbound-page');
+      document.getElementById('outbound-product-code').value = scannedCode;
+      fillProductInfo('outbound', scannedCode);
+      closeScanResultModal();
+    }
+    
+    // 扫码结果：添加新产品
+    function scanResultAddProduct() {
+      document.getElementById('product-code').value = scannedCode;
+      document.getElementById('add-product-modal').classList.remove('hidden');
+      closeScanResultModal();
+    }
+    
+    // 旧版扫码处理（兼容原有逻辑）
+    function handleScanResult(code) {
+      if (scanMode === 'inbound') {
+        document.getElementById('inbound-product-code').value = code;
+        fillProductInfo('inbound', code);
+      } else if (scanMode === 'outbound') {
+        document.getElementById('outbound-product-code').value = code;
+        fillProductInfo('outbound', code);
+      } else if (scanMode === 'stock') {
+        // 从库存页面扫码
+        showScanResultModal(code);
+        return;
+      }
+    }
+    
+    // 填充供应商下拉选择框
+    function populateSupplierSelect() {
+      try {
+        const suppliers = getStoredData(STORAGE_KEYS.suppliers) || [];
+        const select = document.getElementById('inbound-supplier');
+        
+        // 保存当前选中值
+        const currentValue = select.value;
+        
+        // 清空并添加默认选项
+        select.innerHTML = '<option value="">请选择供应商</option>';
+        
+        // 添加供应商选项
+        suppliers.forEach(supplier => {
+          const option = document.createElement('option');
+          option.value = supplier.id;
+          option.textContent = supplier.name;
+          select.appendChild(option);
+        });
+        
+        // 恢复选中值
+        if (currentValue) {
+          select.value = currentValue;
+        }
+        
+      } catch (error) {
+        console.error('填充供应商选择框失败:', error);
+      }
+    }
+    
+    // 填充领用人下拉选择框
+    function populateUserSelect() {
+      try {
+        const users = getStoredData(STORAGE_KEYS.users) || [];
+        const select = document.getElementById('outbound-user');
+        
+        // 保存当前选中值
+        const currentValue = select.value;
+        
+        // 清空并添加默认选项
+        select.innerHTML = '<option value="">请选择领用人</option>';
+        
+        // 添加领用人选项
+        users.forEach(user => {
+          const option = document.createElement('option');
+          option.value = user.id;
+          option.textContent = `${user.name} (${user.department || '无部门'})`;
+          select.appendChild(option);
+        });
+        
+        // 恢复选中值
+        if (currentValue) {
+          select.value = currentValue;
+        }
+        
+      } catch (error) {
+        console.error('填充领用人选择框失败:', error);
+      }
+    }
+    
+    // 填充单位下拉选择框
+    function populateUnitSelect(type) {
+      try {
+        const units = getStoredData(STORAGE_KEYS.units) || [];
+        let selectId = '';
+        
+        if (type === 'inbound') {
+          selectId = 'inbound-unit';
+        } else if (type === 'outbound') {
+          selectId = 'outbound-unit';
+        } else if (type === 'product-base') {
+          selectId = 'product-base-unit';
+        } else if (type === 'unit-base') {
+          selectId = 'unit-base';
+        } else if (type === 'conversion') {
+          // 处理换算单位选择框（左右两个选择框）
+          const conversionUnitsLeft = document.querySelectorAll('.conversion-unit-left');
+          const conversionUnitsRight = document.querySelectorAll('.conversion-unit-right');
+          
+          conversionUnitsLeft.forEach(select => {
+            select.innerHTML = '<option value="">请选择单位</option>';
+            units.forEach(unit => {
+              const option = document.createElement('option');
+              option.value = unit.name;
+              option.textContent = unit.name;
+              select.appendChild(option);
+            });
+          });
+          
+          conversionUnitsRight.forEach(select => {
+            select.innerHTML = '<option value="">请选择单位</option>';
+            units.forEach(unit => {
+              const option = document.createElement('option');
+              option.value = unit.name;
+              option.textContent = unit.name;
+              select.appendChild(option);
+            });
+          });
+          return;
+        }
+        
+        const select = document.getElementById(selectId);
+        if (!select) return;
+        
+        // 保存当前选中值
+        const currentValue = select.value;
+        
+        // 清空并添加默认选项
+        select.innerHTML = '<option value="">请选择单位</option>';
+        
+        // 添加单位选项
+        units.forEach(unit => {
+          const option = document.createElement('option');
+          option.value = unit.name;
+          option.textContent = unit.name;
+          select.appendChild(option);
+        });
+        
+        // 恢复选中值
+        if (currentValue) {
+          select.value = currentValue;
+        }
+        
+      } catch (error) {
+        console.error('填充单位选择框失败:', error);
+      }
+    }
+    
+    // 填充所有单位选择框
+    function populateAllUnitSelects() {
+      populateUnitSelect('inbound');
+      populateUnitSelect('outbound');
+      populateUnitSelect('product-base');
+      populateUnitSelect('unit-base');
+      populateUnitSelect('conversion');
+    }
+    
+    // 更新基准单位显示
+    function updateBaseUnitDisplay() {
+      const baseUnit = document.getElementById('product-base-unit').value;
+      const baseUnitDisplays = document.querySelectorAll('.base-unit-display');
+      
+      baseUnitDisplays.forEach(display => {
+        display.textContent = baseUnit || '个';
+      });
+    }
+    
+    // 添加换算关系行
+    function addConversionRate() {
+      const container = document.getElementById('conversion-rates-container');
+      const units = getStoredData(STORAGE_KEYS.units) || [];
+      
+      // 生成单位选项HTML
+      let unitOptions = '<option value="">请选择单位</option>';
+      units.forEach(unit => {
+        unitOptions += `<option value="${unit.name}">${unit.name}</option>`;
+      });
+      
+      const newRow = document.createElement('div');
+      newRow.className = 'flex items-center gap-2 conversion-rate-item';
+      newRow.innerHTML = `
+        <input type="number" class="w-16 px-2 py-2 border border-gray-300 rounded-md conversion-value-left" min="1" step="0.01" value="1">
+        <select class="flex-1 px-2 py-2 border border-gray-300 rounded-md conversion-unit-left">
+          ${unitOptions}
+        </select>
+        <span class="text-gray-500">=</span>
+        <input type="number" class="w-16 px-2 py-2 border border-gray-300 rounded-md conversion-value-right" min="1" step="0.01" value="1">
+        <select class="flex-1 px-2 py-2 border border-gray-300 rounded-md conversion-unit-right">
+          ${unitOptions}
+        </select>
+        <button type="button" onclick="removeConversionRate(this)" class="text-danger">
+          <i class="fa fa-times"></i>
+        </button>
+      `;
+      
+      container.appendChild(newRow);
+      
+      // 填充单位选项
+      populateUnitSelect('conversion');
+    }
+    
+    // 移除换算关系行
+    function removeConversionRate(button) {
+      const row = button.closest('.conversion-rate-item');
+      if (row && document.querySelectorAll('.conversion-rate-item').length > 1) {
+        row.remove();
+      } else {
+        showToast('至少保留一个换算关系');
+      }
+    }
+    
+    // 保存产品
+    function saveProduct() {
+      try {
+        const code = document.getElementById('product-code').value.trim();
+        const name = document.getElementById('product-name').value.trim();
+        const specification = document.getElementById('product-spec').value.trim();
+        const category = document.getElementById('product-category').value.trim();
+        const baseUnit = document.getElementById('product-base-unit').value;
+        const minStock = parseFloat(document.getElementById('product-min-stock').value) || 0;
+        const supplierId = document.getElementById('product-supplier').value;
+        const usagePerTime = parseFloat(document.getElementById('product-usage-per-time').value) || 0;
+        const usagePerDay = parseInt(document.getElementById('product-usage-per-day').value) || 0;
+        const remarks = document.getElementById('product-remarks').value.trim();
+        
+        // 验证必填项
+        if (!code) {
+          showToast('请输入产品编码');
+          return;
+        }
+        
+        if (!name) {
+          showToast('请输入产品名称');
+          return;
+        }
+        
+        if (!baseUnit) {
+          showToast('请选择基准单位');
+          return;
+        }
+        
+        // 获取换算关系 - 新格式：[数值左][单位左] = [数值右][单位右]
+        const unitConversions = {};
+        const conversionItems = document.querySelectorAll('.conversion-rate-item');
+        
+        // 第一步：初始化基准单位
+        unitConversions[baseUnit] = 1;
+        
+        // 第二步：收集所有换算关系对，先处理能直接关联基准单位的
+        const conversionPairs = [];
+        conversionItems.forEach(item => {
+          const valueLeft = parseFloat(item.querySelector('.conversion-value-left').value) || 1;
+          const unitLeft = item.querySelector('.conversion-unit-left').value;
+          const valueRight = parseFloat(item.querySelector('.conversion-value-right').value) || 1;
+          const unitRight = item.querySelector('.conversion-unit-right').value;
+          
+          if (unitLeft && unitRight && unitLeft !== unitRight) {
+            conversionPairs.push({ valueLeft, unitLeft, valueRight, unitRight });
+          }
+        });
+        
+        // 第三步：多轮处理，直到所有能解析的换算关系都被处理
+        let processedCount = -1;
+        while (conversionPairs.length > 0 && processedCount !== 0) {
+          processedCount = 0;
+          const remainingPairs = [];
+          
+          for (const pair of conversionPairs) {
+            const { valueLeft, unitLeft, valueRight, unitRight } = pair;
+            
+            // 情况1：左边单位已知，右边未知
+            if (unitConversions.hasOwnProperty(unitLeft) && !unitConversions.hasOwnProperty(unitRight)) {
+              // valueLeft * unitLeft = valueRight * unitRight
+              // => 1 unitRight = (valueLeft / valueRight) * unitLeft
+              // => unitRight 相对于基准单位的值 = unitConversions[unitLeft] * valueLeft / valueRight
+              unitConversions[unitRight] = unitConversions[unitLeft] * valueLeft / valueRight;
+              processedCount++;
+            }
+            // 情况2：右边单位已知，左边未知
+            else if (unitConversions.hasOwnProperty(unitRight) && !unitConversions.hasOwnProperty(unitLeft)) {
+              unitConversions[unitLeft] = unitConversions[unitRight] * valueRight / valueLeft;
+              processedCount++;
+            }
+            // 情况3：两边都已知，验证一致性（跳过）
+            // 情况4：两边都未知，留到下一轮
+            else if (!unitConversions.hasOwnProperty(unitLeft) && !unitConversions.hasOwnProperty(unitRight)) {
+              remainingPairs.push(pair);
+            }
+          }
+          
+          // 更新剩余未处理的换算关系对
+          conversionPairs.length = 0;
+          Array.prototype.push.apply(conversionPairs, remainingPairs);
+        }
+        
+        // 输出无法处理的换算关系对（用于调试）
+        if (conversionPairs.length > 0) {
+          console.log('以下换算关系无法解析（缺少与基准单位的关联）:', 
+            conversionPairs.map(p => `${p.valueLeft}${p.unitLeft} = ${p.valueRight}${p.unitRight}`));
+          showToast('部分换算关系无法解析，请确保至少有一条换算关系涉及基准单位');
+        }
+        
+        const products = getStoredData(STORAGE_KEYS.products) || [];
+        
+        if (editingProductId) {
+          // 编辑现有产品
+          const index = products.findIndex(p => p.id === editingProductId);
+          if (index !== -1) {
+            products[index] = {
+              ...products[index],
+              code,
+              name,
+              specification,
+              category,
+              baseUnit,
+              unitConversions,
+              supplierId,
+              minStock,
+              usagePerTime,
+              usagePerDay,
+              remarks
+            };
+          }
+        } else {
+          // 检查编码是否已存在
+          if (products.some(p => p.code === code)) {
+            showToast('产品编码已存在');
+            return;
+          }
+          
+          // 添加新产品
+          const newProduct = {
+            id: `product-${Date.now()}`,
+            code,
+            name,
+            specification,
+            category,
+            baseUnit,
+            unitConversions,
+            supplierId,
+            stock: 0,
+            minStock,
+            usagePerTime,
+            usagePerDay,
+            remarks
+          };
+          
+          products.push(newProduct);
+        }
+        
+        // 保存产品数据
+        localStorage.setItem(STORAGE_KEYS.products, JSON.stringify(products));
+        
+        // 更新UI
+        updateProductList();
+        updateStockList();
+        updateHomePage();
+        
+        // 关闭模态框
+        hideAddProductModal();
+        
+        showToast(editingProductId ? '产品更新成功' : '产品添加成功');
+        
+        // 重置编辑状态
+        editingProductId = null;
+        
+      } catch (error) {
+        console.error('保存产品失败:', error);
+        showToast('保存产品失败：' + error.message);
+      }
+    }
+    
+    // 保存供应商
+    function saveSupplier() {
+      try {
+        const name = document.getElementById('supplier-name').value.trim();
+        const contact = document.getElementById('supplier-contact').value.trim();
+        const phone = document.getElementById('supplier-phone').value.trim();
+        const address = document.getElementById('supplier-address').value.trim();
+        const remarks = document.getElementById('supplier-remarks').value.trim();
+        
+        // 验证必填项
+        if (!name) {
+          showToast('请输入供应商名称');
+          return;
+        }
+        
+        const suppliers = getStoredData(STORAGE_KEYS.suppliers) || [];
+        
+        // 检查是否是编辑模式
+        const modal = document.getElementById('add-supplier-modal');
+        const editId = modal.getAttribute('data-edit-id');
+        
+        if (editId) {
+          // 编辑现有供应商
+          const index = suppliers.findIndex(s => s.id === editId);
+          if (index !== -1) {
+            suppliers[index] = {
+              ...suppliers[index],
+              name,
+              contact,
+              phone,
+              address,
+              remarks
+            };
+            showToast('供应商更新成功');
+          }
+        } else {
+          // 添加新供应商
+          const newSupplier = {
+            id: `supplier-${Date.now()}`,
+            name,
+            contact,
+            phone,
+            address,
+            remarks
+          };
+          
+          suppliers.push(newSupplier);
+          showToast('供应商添加成功');
+        }
+        
+        // 保存供应商数据
+        localStorage.setItem(STORAGE_KEYS.suppliers, JSON.stringify(suppliers));
+        
+        // 更新UI
+        updateSupplierList();
+        populateSupplierSelect();
+        
+        // 关闭模态框
+        hideAddSupplierModal();
+        
+        // 清除编辑状态
+        modal.removeAttribute('data-edit-id');
+        
+      } catch (error) {
+        console.error('保存供应商失败:', error);
+        showToast('保存供应商失败：' + error.message);
+      }
+    }
+    
+    // 保存领用人
+    function saveUser() {
+      try {
+        const name = document.getElementById('user-name').value.trim();
+        const department = document.getElementById('user-department').value.trim();
+        const phone = document.getElementById('user-phone').value.trim();
+        const remarks = document.getElementById('user-remarks').value.trim();
+        
+        // 验证必填项
+        if (!name) {
+          showToast('请输入领用人姓名');
+          return;
+        }
+        
+        const users = getStoredData(STORAGE_KEYS.users) || [];
+        
+        // 添加新领用人
+        const newUser = {
+          id: `user-${Date.now()}`,
+          name,
+          department,
+          phone,
+          remarks
+        };
+        
+        users.push(newUser);
+        
+        // 保存领用人数据
+        localStorage.setItem(STORAGE_KEYS.users, JSON.stringify(users));
+        
+        // 更新UI
+        updateUserList();
+        
+        // 关闭模态框
+        hideAddUserModal();
+        
+        showToast('领用人添加成功');
+        
+      } catch (error) {
+        console.error('保存领用人失败:', error);
+        showToast('保存领用人失败：' + error.message);
+      }
+    }
+    
+    // 保存单位
+    function saveUnit() {
+      try {
+        const name = document.getElementById('unit-name').value.trim();
+        const category = document.getElementById('unit-category').value;
+        
+        // 验证必填项
+        if (!name) {
+          showToast('请输入单位名称');
+          return;
+        }
+        
+        const units = getStoredData(STORAGE_KEYS.units) || [];
+        const modal = document.getElementById('add-unit-modal');
+        const editId = modal.getAttribute('data-edit-id');
+        
+        if (editId) {
+          // 编辑模式
+          const index = units.findIndex(u => u.id === editId);
+          if (index !== -1) {
+            // 检查重名（排除自身）
+            if (units.some(u => u.name === name && u.id !== editId)) {
+              showToast('单位名称已存在');
+              return;
+            }
+            units[index] = {
+              ...units[index],
+              name,
+              category
+            };
+            showToast('单位更新成功');
+          }
+        } else {
+          // 新增模式
+          if (units.some(u => u.name === name)) {
+            showToast('单位名称已存在');
+            return;
+          }
+          // 添加新单位
+          const newUnit = {
+            id: `unit-${Date.now()}`,
+            name,
+            category
+          };
+          units.push(newUnit);
+          showToast('单位添加成功');
+        }
+        
+        // 保存单位数据
+        localStorage.setItem(STORAGE_KEYS.units, JSON.stringify(units));
+        
+        // 更新UI
+        updateUnitList();
+        populateAllUnitSelects();
+        
+        // 关闭模态框
+        hideAddUnitModal();
+        
+        // 清除编辑状态
+        modal.removeAttribute('data-edit-id');
+        
+      } catch (error) {
+        console.error('保存单位失败:', error);
+        showToast('保存单位失败：' + error.message);
+      }
+    }
+    
+    // 过滤库存列表
+    function filterStockList(searchTerm) {
+      updateStockList('all', searchTerm);
+    }
+    
+    // 按状态过滤库存
+    function filterStockByStatus(status) {
+      updateStockList(status);
+    }
+    
+    // 过滤产品列表
+    function filterProductList(searchTerm) {
+      updateProductList(searchTerm);
+    }
+    
+    // 过滤供应商列表
+    function filterSupplierList(searchTerm) {
+      updateSupplierList(searchTerm);
+    }
+    
+    // 过滤领用人列表
+    function filterUserList(searchTerm) {
+      updateUserList(searchTerm);
+    }
+    
+    // 过滤历史记录
+    function filterHistory(type) {
+      try {
+        const inboundRecords = getStoredData(STORAGE_KEYS.inboundRecords) || [];
+        const outboundRecords = getStoredData(STORAGE_KEYS.outboundRecords) || [];
+        const products = getStoredData(STORAGE_KEYS.products) || [];
+        
+        let records = [];
+        
+        if (type === 'all') {
+          records = [
+            ...inboundRecords.map(r => ({...r, type: 'inbound'})),
+            ...outboundRecords.map(r => ({...r, type: 'outbound'}))
+          ];
+        } else if (type === 'inbound') {
+          records = inboundRecords.map(r => ({...r, type: 'inbound'}));
+        } else if (type === 'outbound') {
+          records = outboundRecords.map(r => ({...r, type: 'outbound'}));
+        }
+        
+        // 按日期排序（最新的在前）
+        records.sort((a, b) => new Date(b.date) - new Date(a.date));
+        
+        const container = document.getElementById('history-list');
+        
+        if (records.length === 0) {
+          container.innerHTML = '<div class="text-center text-gray-500 py-4">暂无记录</div>';
+          return;
+        }
+        
+        // 生成记录列表HTML
+        let html = '';
+        records.forEach(record => {
+          const date = new Date(record.date);
+          const formattedDate = `${date.getFullYear()}-${(date.getMonth()+1).toString().padStart(2, '0')}-${date.getDate().toString().padStart(2, '0')} ${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`;
+          const product = products.find(p => p.id === record.productId);
+          const baseUnit = product?.baseUnit || '';
+          
+          html += `
+            <div class="bg-white p-4 rounded-lg shadow-sm border border-gray-100 hover:shadow-md transition-shadow" onclick="viewDetail('${record.type}', '${record.id}')">
+              <div class="flex justify-between items-start mb-2">
+                <div class="flex items-center">
+                  <div class="w-8 h-8 rounded-full flex items-center justify-center ${record.type === 'inbound' ? 'bg-green-100 text-green-600' : 'bg-orange-100 text-orange-600'} mr-3">
+                    <i class="fa ${record.type === 'inbound' ? 'fa-arrow-down' : 'fa-arrow-up'}"></i>
+                  </div>
+                  <div>
+                    <h3 class="font-medium">${record.productName}</h3>
+                    <p class="text-xs text-gray-500">${record.code}</p>
+                  </div>
+                </div>
+                <span class="text-xs px-2 py-1 rounded-full ${
+                  record.type === 'inbound' ? 'bg-green-100 text-green-800' : 'bg-orange-100 text-orange-800'
+                }">${record.type === 'inbound' ? '入库' : '出库'}</span>
+              </div>
+              
+              <div class="grid grid-cols-2 gap-2 mb-2">
+                <div>
+                  <p class="text-xs text-gray-500">日期</p>
+                  <p class="text-sm">${formattedDate}</p>
+                </div>
+                <div>
+                  <p class="text-xs text-gray-500">数量</p>
+                  <p class="text-sm font-medium">${record.quantity}${record.unit}</p>
+                </div>
+                <div>
+                  <p class="text-xs text-gray-500">${record.type === 'inbound' ? '供应商' : '领用人'}</p>
+                  <p class="text-sm">${record.type === 'inbound' ? record.supplierName : record.userName}</p>
+                </div>
+                <div>
+                  <p class="text-xs text-gray-500">操作后库存</p>
+                  <p class="text-sm">${record.stockAfter}${baseUnit}</p>
+                </div>
+              </div>
+              
+              ${record.remarks ? `
+                <div>
+                  <p class="text-xs text-gray-500">备注</p>
+                  <p class="text-sm">${record.remarks}</p>
+                </div>
+              ` : ''}
+            </div>
+          `;
+        });
+        
+        container.innerHTML = html;
+        
+      } catch (error) {
+        console.error('过滤历史记录失败:', error);
+      }
+    }
+    
+    // 搜索历史记录
+    function searchHistory() {
+      const searchTerm = document.getElementById('history-search').value.toLowerCase();
+      filterHistoryBySearch(searchTerm);
+    }
+    
+    // 按搜索词过滤历史记录
+    function filterHistoryBySearch(searchTerm) {
+      // 先获取所有记录，然后过滤
+      const inboundRecords = getStoredData(STORAGE_KEYS.inboundRecords) || [];
+      const outboundRecords = getStoredData(STORAGE_KEYS.outboundRecords) || [];
+      const products = getStoredData(STORAGE_KEYS.products) || [];
+      
+      let allRecords = [
+        ...inboundRecords.map(r => ({...r, type: 'inbound'})),
+        ...outboundRecords.map(r => ({...r, type: 'outbound'}))
+      ];
+      
+      if (searchTerm) {
+        allRecords = allRecords.filter(record => {
+          return record.productName.toLowerCase().includes(searchTerm) || 
+                 record.productCode.toLowerCase().includes(searchTerm) ||
+                 record.code.toLowerCase().includes(searchTerm) ||
+                 (record.supplierName && record.supplierName.toLowerCase().includes(searchTerm)) ||
+                 (record.userName && record.userName.toLowerCase().includes(searchTerm));
+        });
+      }
+      
+      // 按日期排序
+      allRecords.sort((a, b) => new Date(b.date) - new Date(a.date));
+      
+      const container = document.getElementById('history-list');
+      
+      if (allRecords.length === 0) {
+        container.innerHTML = '<div class="text-center text-gray-500 py-4">未找到匹配的记录</div>';
+        return;
+      }
+      
+      // 重新渲染列表
+      let html = '';
+      allRecords.forEach(record => {
+        const date = new Date(record.date);
+        const formattedDate = `${date.getFullYear()}-${(date.getMonth()+1).toString().padStart(2, '0')}-${date.getDate().toString().padStart(2, '0')} ${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`;
+        const product = products.find(p => p.id === record.productId);
+        const baseUnit = product?.baseUnit || '';
+        
+        html += `
+          <div class="bg-white p-4 rounded-lg shadow-sm border border-gray-100 hover:shadow-md transition-shadow" onclick="viewDetail('${record.type}', '${record.id}')">
+            <div class="flex justify-between items-start mb-2">
+              <div class="flex items-center">
+                <div class="w-8 h-8 rounded-full flex items-center justify-center ${record.type === 'inbound' ? 'bg-green-100 text-green-600' : 'bg-orange-100 text-orange-600'} mr-3">
+                  <i class="fa ${record.type === 'inbound' ? 'fa-arrow-down' : 'fa-arrow-up'}"></i>
+                </div>
+                <div>
+                  <h3 class="font-medium">${record.productName}</h3>
+                  <p class="text-xs text-gray-500">${record.code}</p>
+                </div>
+              </div>
+              <span class="text-xs px-2 py-1 rounded-full ${
+                record.type === 'inbound' ? 'bg-green-100 text-green-800' : 'bg-orange-100 text-orange-800'
+              }">${record.type === 'inbound' ? '入库' : '出库'}</span>
+            </div>
+            
+            <div class="grid grid-cols-2 gap-2 mb-2">
+              <div>
+                <p class="text-xs text-gray-500">日期</p>
+                <p class="text-sm">${formattedDate}</p>
+              </div>
+              <div>
+                <p class="text-xs text-gray-500">数量</p>
+                <p class="text-sm font-medium">${record.quantity}${record.unit}</p>
+              </div>
+              <div>
+                <p class="text-xs text-gray-500">${record.type === 'inbound' ? '供应商' : '领用人'}</p>
+                <p class="text-sm">${record.type === 'inbound' ? record.supplierName : record.userName}</p>
+              </div>
+              <div>
+                <p class="text-xs text-gray-500">操作后库存</p>
+                <p class="text-sm">${record.stockAfter}${baseUnit}</p>
+              </div>
+            </div>
+            
+            ${record.remarks ? `
+              <div>
+                <p class="text-xs text-gray-500">备注</p>
+                <p class="text-sm">${record.remarks}</p>
+              </div>
+            ` : ''}
+          </div>
+        `;
+      });
+      
+      container.innerHTML = html;
+    }
+    
+    // 查看明细
+    function viewDetail(type, recordId) {
+      try {
+        let record = null;
+        const products = getStoredData(STORAGE_KEYS.products) || [];
+        
+        if (type === 'inbound') {
+          const inboundRecords = getStoredData(STORAGE_KEYS.inboundRecords) || [];
+          record = inboundRecords.find(r => r.id === recordId);
+        } else {
+          const outboundRecords = getStoredData(STORAGE_KEYS.outboundRecords) || [];
+          record = outboundRecords.find(r => r.id === recordId);
+        }
+        
+        if (!record) {
+          showToast('记录不存在');
+          return;
+        }
+        
+        currentDetail = record;
+        
+        // 获取产品信息
+        const product = products.find(p => p.id === record.productId) || {};
+        
+        // 更新明细页面
+        document.getElementById('detail-title').textContent = type === 'inbound' ? '入库单' : '出库单';
+        document.getElementById('detail-number').textContent = record.code;
+        document.getElementById('detail-party').textContent = type === 'inbound' ? record.supplierName : `${record.userName} (${record.userDepartment || '无部门'})`;
+        
+        const date = new Date(record.date);
+        const formattedDate = `${date.getFullYear()}-${(date.getMonth()+1).toString().padStart(2, '0')}-${date.getDate().toString().padStart(2, '0')}`;
+        document.getElementById('detail-date').textContent = formattedDate;
+        
+        document.getElementById('detail-creator').textContent = record.createdBy;
+        document.getElementById('detail-status').textContent = '已完成';
+        document.getElementById('detail-remark').textContent = record.remarks || '无';
+        
+        // 商品明细
+        const detailItems = document.getElementById('detail-items');
+        detailItems.innerHTML = `
+          <div class="detail-item">
+            <div class="grid grid-cols-4 gap-2">
+              <div class="col-span-2">
+                <p class="font-medium">${record.productName}</p>
+                <p class="text-sm text-gray-500">编码：${record.productCode}</p>
+                <p class="text-sm text-gray-500">规格：${record.specification || '-'}</p>
+              </div>
+              <div>
+                <p class="text-sm text-gray-500">数量</p>
+                <p class="font-medium">${record.quantity}${record.unit}</p>
+              </div>
+              <div>
+                ${type === 'inbound' ? `
+                  <p class="text-sm text-gray-500">单价</p>
+                  <p class="font-medium">¥${record.price.toFixed(2)}</p>
+                ` : ''}
+              </div>
+            </div>
+            ${type === 'inbound' ? `
+              <div class="mt-2">
+                <p class="text-sm text-gray-500">金额</p>
+                <p class="font-medium text-primary">¥${record.totalPrice.toFixed(2)}</p>
+              </div>
+            ` : ''}
+          </div>
+        `;
+        
+        // 统计信息
+        document.getElementById('detail-item-count').textContent = '1';
+        document.getElementById('detail-stock').textContent = `${record.stockAfter}${product.baseUnit || ''}`;
+        document.getElementById('detail-total').textContent = type === 'inbound' ? `¥${record.totalPrice.toFixed(2)}` : '¥0.00';
+        
+        // 导航到明细页面
+        navigateTo('detail-page');
+        
+      } catch (error) {
+        console.error('查看明细失败:', error);
+        showToast('查看明细失败：' + error.message);
+      }
+    }
+    
+    // 打印明细
+    function printDetail() {
+      window.print();
+    }
+    
+    // 编辑产品
+    function editProduct(productId) {
+      try {
+        const products = getStoredData(STORAGE_KEYS.products) || []
+        const product = products.find(p => p.id === productId);
+        
+        if (!product) {
+          showToast('产品不存在');
+          return;
+        }
+        
+        // 设置编辑状态
+        editingProductId = productId;
+        
+        // 填充表单
+        document.getElementById('product-code').value = product.code;
+        document.getElementById('product-name').value = product.name;
+        document.getElementById('product-spec').value = product.specification || '';
+        document.getElementById('product-category').value = product.category || '';
+        document.getElementById('product-base-unit').value = product.baseUnit;
+        document.getElementById('product-min-stock').value = product.minStock || 0;
+        document.getElementById('product-supplier').value = product.supplierId || '';
+        document.getElementById('product-usage-per-time').value = product.usagePerTime || 0;
+        document.getElementById('product-usage-per-day').value = product.usagePerDay || 0;
+        document.getElementById('product-remarks').value = product.remarks || '';
+        
+        // 更新基准单位显示
+        updateBaseUnitDisplay();
+        
+        // 清空现有换算关系
+        const conversionContainer = document.getElementById('conversion-rates-container');
+        conversionContainer.innerHTML = '';
+        
+        // 获取单位列表用于生成选项
+        const units = getStoredData(STORAGE_KEYS.units) || [];
+        let unitOptions = '<option value="">请选择单位</option>';
+        units.forEach(unit => {
+          unitOptions += `<option value="${unit.name}">${unit.name}</option>`;
+        });
+        
+        // 添加换算关系 - 新格式
+        if (product.unitConversions && Object.keys(product.unitConversions).length > 0) {
+          Object.keys(product.unitConversions).forEach((unit, index) => {
+            const value = product.unitConversions[unit];
+            
+            // 新格式：显示为 "1[单位] = value[基准单位]"
+            const newRow = document.createElement('div');
+            newRow.className = 'flex items-center gap-2 conversion-rate-item';
+            newRow.innerHTML = `
+              <input type="number" id="conversion-value-left" name="conversion-value-left" class="w-16 px-2 py-2 border border-gray-300 rounded-md conversion-value-left" min="1" step="0.01" value="1">
+              <select class="flex-1 px-2 py-2 border border-gray-300 rounded-md conversion-unit-left" data-selected-unit="${unit}">
+                ${unitOptions}
+              </select>
+              <span class="text-gray-500">=</span>
+              <input type="number" id="conversion-value-right-${index}" name="conversion-value-right-${index}" class="w-16 px-2 py-2 border border-gray-300 rounded-md conversion-value-right" min="1" step="0.01" value="${value}">
+              <select class="flex-1 px-2 py-2 border border-gray-300 rounded-md conversion-unit-right" data-selected-unit="${product.baseUnit}">
+                ${unitOptions}
+              </select>
+              <button type="button" onclick="removeConversionRate(this)" class="text-danger">
+                <i class="fa fa-times"></i>
+              </button>
+            `;
+            
+            conversionContainer.appendChild(newRow);
+          });
+        } else {
+          // 默认添加一个空行让用户填写
+          const newRow = document.createElement('div');
+          newRow.className = 'flex items-center gap-2 conversion-rate-item';
+          newRow.innerHTML = `
+            <input type="number" class="w-16 px-2 py-2 border border-gray-300 rounded-md conversion-value-left" min="1" step="0.01" value="1">
+            <select class="flex-1 px-2 py-2 border border-gray-300 rounded-md conversion-unit-left">
+              ${unitOptions}
+            </select>
+            <span class="text-gray-500">=</span>
+            <input type="number" class="w-16 px-2 py-2 border border-gray-300 rounded-md conversion-value-right" min="1" step="0.01" value="1">
+            <select class="flex-1 px-2 py-2 border border-gray-300 rounded-md conversion-unit-right">
+              ${unitOptions}
+            </select>
+            <button type="button" onclick="removeConversionRate(this)" class="text-danger">
+              <i class="fa fa-times"></i>
+            </button>
+          `;
+          
+          conversionContainer.appendChild(newRow);
+        }
+        
+        // 设置选中值
+        const conversionUnitsLeft = document.querySelectorAll('.conversion-unit-left');
+        const conversionUnitsRight = document.querySelectorAll('.conversion-unit-right');
+        
+        conversionUnitsLeft.forEach(select => {
+          const selectedUnit = select.getAttribute('data-selected-unit');
+          if (selectedUnit) {
+            select.value = selectedUnit;
+          }
+        });
+        
+        conversionUnitsRight.forEach(select => {
+          const selectedUnit = select.getAttribute('data-selected-unit');
+          if (selectedUnit) {
+            select.value = selectedUnit;
+          }
+        });
+        
+        // 显示模态框
+        document.getElementById('add-product-modal').classList.remove('hidden');
+        
+      } catch (error) {
+        console.error('编辑产品失败:', error);
+        showToast('编辑产品失败：' + error.message);
+      }
+    }
+    
+    // 删除产品
+    function deleteProduct(productId) {
+      try {
+        if (!confirm('确定要删除该产品吗？删除后相关数据也将被移除！')) {
+          return;
+        }
+        
+        const products = getStoredData(STORAGE_KEYS.products) || [];
+        const newProducts = products.filter(p => p.id !== productId);
+        
+        // 更新产品数据
+        localStorage.setItem(STORAGE_KEYS.products, JSON.stringify(newProducts));
+        
+        // 更新相关记录（删除关联的出入库记录）
+        const inboundRecords = getStoredData(STORAGE_KEYS.inboundRecords) || [];
+        const newInboundRecords = inboundRecords.filter(r => r.productId !== productId);
+        localStorage.setItem(STORAGE_KEYS.inboundRecords, JSON.stringify(newInboundRecords));
+        
+        const outboundRecords = getStoredData(STORAGE_KEYS.outboundRecords) || [];
+        const newOutboundRecords = outboundRecords.filter(r => r.productId !== productId);
+        localStorage.setItem(STORAGE_KEYS.outboundRecords, JSON.stringify(newOutboundRecords));
+        
+        // 更新UI
+        updateProductList();
+        updateStockList();
+        updateHomePage();
+        updateAlertPage();
+        
+        showToast('产品删除成功');
+        
+      } catch (error) {
+        console.error('删除产品失败:', error);
+        showToast('删除产品失败：' + error.message);
+      }
+    }
+    
+    // 编辑供应商
+    function editSupplier(supplierId) {
+      try {
+        const suppliers = getStoredData(STORAGE_KEYS.suppliers) || [];
+        const supplier = suppliers.find(s => s.id === supplierId);
+        
+        if (!supplier) {
+          showToast('供应商不存在');
+          return;
+        }
+        
+        // 填充表单
+        document.getElementById('supplier-name').value = supplier.name;
+        document.getElementById('supplier-contact').value = supplier.contact || '';
+        document.getElementById('supplier-phone').value = supplier.phone || '';
+        document.getElementById('supplier-address').value = supplier.address || '';
+        document.getElementById('supplier-remarks').value = supplier.remarks || '';
+        
+        // 显示模态框
+        document.getElementById('add-supplier-modal').classList.remove('hidden');
+        
+        // 这里可以添加编辑状态标识，区分新增和编辑
+        document.getElementById('add-supplier-modal').setAttribute('data-edit-id', supplierId);
+        
+      } catch (error) {
+        console.error('编辑供应商失败:', error);
+        showToast('编辑供应商失败：' + error.message);
+      }
+    }
+    
+    // 删除供应商
+    function deleteSupplier(supplierId) {
+      try {
+        if (!confirm('确定要删除该供应商吗？删除后相关数据也将被移除！')) {
+          return;
+        }
+        
+        const suppliers = getStoredData(STORAGE_KEYS.suppliers) || [];
+        const newSuppliers = suppliers.filter(s => s.id !== supplierId);
+        
+        // 更新供应商数据
+        localStorage.setItem(STORAGE_KEYS.suppliers, JSON.stringify(newSuppliers));
+        
+        // 更新产品中的供应商关联
+        const products = getStoredData(STORAGE_KEYS.products) || [];
+        products.forEach(product => {
+          if (product.supplierId === supplierId) {
+            product.supplierId = '';
+          }
+        });
+        localStorage.setItem(STORAGE_KEYS.products, JSON.stringify(products));
+        
+        // 更新UI
+        updateSupplierList();
+        updateProductList();
+        
+        showToast('供应商删除成功');
+        
+      } catch (error) {
+        console.error('删除供应商失败:', error);
+        showToast('删除供应商失败：' + error.message);
+      }
+    }
+    
+    // 编辑领用人
+    function editUser(userId) {
+      try {
+        const users = getStoredData(STORAGE_KEYS.users) || [];
+        const user = users.find(u => u.id === userId);
+        
+        if (!user) {
+          showToast('领用人不存在');
+          return;
+        }
+        
+        // 填充表单
+        document.getElementById('user-name').value = user.name;
+        document.getElementById('user-department').value = user.department || '';
+        document.getElementById('user-phone').value = user.phone || '';
+        document.getElementById('user-remarks').value = user.remarks || '';
+        
+        // 显示模态框
+        document.getElementById('add-user-modal').classList.remove('hidden');
+        
+        // 添加编辑状态标识
+        document.getElementById('add-user-modal').setAttribute('data-edit-id', userId);
+        
+      } catch (error) {
+        console.error('编辑领用人失败:', error);
+        showToast('编辑领用人失败：' + error.message);
+      }
+    }
+    
+    // 删除领用人
+    function deleteUser(userId) {
+      try {
+        if (!confirm('确定要删除该领用人吗？删除后相关数据也将被移除！')) {
+          return;
+        }
+        
+        const users = getStoredData(STORAGE_KEYS.users) || [];
+        const newUsers = users.filter(u => u.id !== userId);
+        
+        // 更新领用人数据
+        localStorage.setItem(STORAGE_KEYS.users, JSON.stringify(newUsers));
+        
+        // 更新UI
+        updateUserList();
+        
+        showToast('领用人删除成功');
+        
+      } catch (error) {
+        console.error('删除领用人失败:', error);
+        showToast('删除领用人失败：' + error.message);
+      }
+    }
+    
+    // 编辑单位
+    function editUnit(unitId) {
+      try {
+        const units = getStoredData(STORAGE_KEYS.units) || [];
+        const unit = units.find(u => u.id === unitId);
+        
+        if (!unit) {
+          showToast('单位不存在');
+          return;
+        }
+        
+        // 填充表单
+        document.getElementById('unit-name').value = unit.name;
+        document.getElementById('unit-category').value = unit.category || '数量';
+        
+        // 显示模态框
+        document.getElementById('add-unit-modal').classList.remove('hidden');
+        
+        // 添加编辑状态标识
+        document.getElementById('add-unit-modal').setAttribute('data-edit-id', unitId);
+        
+      } catch (error) {
+        console.error('编辑单位失败:', error);
+        showToast('编辑单位失败：' + error.message);
+      }
+    }
+    
+    // 删除单位
+    function deleteUnit(unitId) {
+      try {
+        if (!confirm('确定要删除该单位吗？删除后相关数据也将被移除！')) {
+          return;
+        }
+        
+        const units = getStoredData(STORAGE_KEYS.units) || [];
+        const unitToDelete = units.find(u => u.id === unitId);
+        
+        if (!unitToDelete) {
+          showToast('单位不存在');
+          return;
+        }
+        
+        // 检查是否有产品使用该单位
+        const products = getStoredData(STORAGE_KEYS.products) || [];
+        let isUnitUsed = false;
+        
+        products.forEach(product => {
+          if (product.baseUnit === unitToDelete.name) {
+            isUnitUsed = true;
+          }
+          
+          if (product.unitConversions) {
+            Object.keys(product.unitConversions).forEach(unit => {
+              if (unit === unitToDelete.name) {
+                isUnitUsed = true;
+              }
+            });
+          }
+        });
+        
+        if (isUnitUsed) {
+          showToast('该单位正在被产品使用，无法删除');
+          return;
+        }
+        
+        // 删除单位
+        const newUnits = units.filter(u => u.id !== unitId);
+        localStorage.setItem(STORAGE_KEYS.units, JSON.stringify(newUnits));
+        
+        // 更新UI
+        updateUnitList();
+        
+        showToast('单位删除成功');
+        
+      } catch (error) {
+        console.error('删除单位失败:', error);
+        showToast('删除单位失败：' + error.message);
+      }
+    }
+    
+    // 导出数据
+    function exportData() {
+      try {
+        // 收集所有数据
+        const exportData = {
+          products: getStoredData(STORAGE_KEYS.products),
+          suppliers: getStoredData(STORAGE_KEYS.suppliers),
+          users: getStoredData(STORAGE_KEYS.users),
+          units: getStoredData(STORAGE_KEYS.units),
+          inboundRecords: getStoredData(STORAGE_KEYS.inboundRecords),
+          outboundRecords: getStoredData(STORAGE_KEYS.outboundRecords),
+          exportTime: new Date().toISOString()
+        };
+        
+        // 转换为JSON字符串
+        const jsonString = JSON.stringify(exportData, null, 2);
+        const blob = new Blob([jsonString], { type: 'application/json' });
+        
+        // 创建下载链接
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `库存数据_${new Date().toISOString().split('T')[0]}.json`;
+        document.body.appendChild(a);
+        a.click();
+        
+        // 清理
+        setTimeout(() => {
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+        }, 0);
+        
+        showToast('数据导出成功');
+        
+      } catch (error) {
+        console.error('导出数据失败:', error);
+        showToast('导出数据失败：' + error.message);
+      }
+    }
+    
+    // 导入数据
+    function importData() {
+      try {
+        // 创建文件输入框
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = '.json';
+        
+        input.onchange = function(e) {
+          const file = e.target.files[0];
+          if (!file) return;
+          
+          const reader = new FileReader();
+          reader.onload = function(event) {
+            try {
+              const importedData = JSON.parse(event.target.result);
+              
+              // 验证数据格式
+              if (!importedData.products || !importedData.suppliers || !importedData.users || !importedData.units) {
+                showToast('导入文件格式不正确');
+                return;
+              }
+              
+              if (!confirm('确定要导入数据吗？现有数据将被覆盖！')) {
+                return;
+              }
+              
+              // 保存导入的数据
+              if (importedData.products) {
+                localStorage.setItem(STORAGE_KEYS.products, JSON.stringify(importedData.products));
+              }
+              
+              if (importedData.suppliers) {
+                localStorage.setItem(STORAGE_KEYS.suppliers, JSON.stringify(importedData.suppliers));
+              }
+              
+              if (importedData.users) {
+                localStorage.setItem(STORAGE_KEYS.users, JSON.stringify(importedData.users));
+              }
+              
+              if (importedData.units) {
+                localStorage.setItem(STORAGE_KEYS.units, JSON.stringify(importedData.units));
+              }
+              
+              if (importedData.inboundRecords) {
+                localStorage.setItem(STORAGE_KEYS.inboundRecords, JSON.stringify(importedData.inboundRecords));
+              }
+              
+              if (importedData.outboundRecords) {
+                localStorage.setItem(STORAGE_KEYS.outboundRecords, JSON.stringify(importedData.outboundRecords));
+              }
+              
+              // 更新UI
+              updateHomePage();
+              updateProductList();
+              updateSupplierList();
+              updateUserList();
+              updateUnitList();
+              updateStockList();
+              updateAlertPage();
+              
+              showToast('数据导入成功');
+              
+            } catch (error) {
+              console.error('解析导入文件失败:', error);
+              showToast('解析文件失败：' + error.message);
+            }
+          };
+          
+          reader.readAsText(file);
+        };
+        
+        input.click();
+        
+      } catch (error) {
+        console.error('导入数据失败:', error);
+        showToast('导入数据失败：' + error.message);
+      }
+    }
+    
+    // 清空所有数据
+    function clearAllData() {
+      try {
+        if (!confirm('警告！确定要清空所有数据吗？此操作不可恢复！')) {
+          return;
+        }
+        
+        // 清空所有本地存储
+        localStorage.removeItem(STORAGE_KEYS.products);
+        localStorage.removeItem(STORAGE_KEYS.suppliers);
+        localStorage.removeItem(STORAGE_KEYS.users);
+        localStorage.removeItem(STORAGE_KEYS.units);
+        localStorage.removeItem(STORAGE_KEYS.inboundRecords);
+        localStorage.removeItem(STORAGE_KEYS.outboundRecords);
+        
+        // 重新初始化示例数据
+        initializeData();
+        
+        // 更新UI
+        updateHomePage();
+        updateProductList();
+        updateSupplierList();
+        updateUserList();
+        updateUnitList();
+        updateStockList();
+        updateAlertPage();
+        
+        showToast('所有数据已清空，并恢复为初始示例数据');
+        
+      } catch (error) {
+        console.error('清空数据失败:', error);
+        showToast('清空数据失败：' + error.message);
+      }
+    }
+    
+    // 更新预警徽章
+    function updateAlertBadge() {
+      try {
+        const products = getStoredData(STORAGE_KEYS.products) || [];
+        const alertCount = products.filter(p => p.stock < p.minStock).length;
+        
+        const alertBadge = document.getElementById('alert-badge');
+        const topAlertBadge = document.getElementById('top-alert-badge');
+        const bellIcon = document.querySelector('#alert-bell-btn i');
+        
+        if (alertCount > 0) {
+          alertBadge.classList.remove('hidden');
+          topAlertBadge.classList.remove('hidden');
+          topAlertBadge.textContent = alertCount > 99 ? '99+' : alertCount;
+          document.getElementById('stock-alerts').textContent = alertCount;
+          
+          // 添加铃铛摇动动画
+          if (bellIcon) {
+            bellIcon.classList.add('alert-bell-ringing', 'text-danger');
+            bellIcon.classList.remove('text-gray-600');
+          }
+        } else {
+          alertBadge.classList.add('hidden');
+          topAlertBadge.classList.add('hidden');
+          document.getElementById('stock-alerts').textContent = 0;
+          
+          // 移除铃铛摇动动画
+          if (bellIcon) {
+            bellIcon.classList.remove('alert-bell-ringing', 'text-danger');
+            bellIcon.classList.add('text-gray-600');
+          }
+        }
+        
+      } catch (error) {
+        console.error('更新预警徽章失败:', error);
+      }
+    }
+    
+    // 错误处理
+    window.addEventListener('error', function(e) {
+      console.error('全局错误:', e.error);
+      showToast('系统错误：' + e.error.message);
+    });
+    
+    // 确保页面加载完成后执行初始化
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', function() {
+        console.log('页面加载完成，初始化系统');
+        // 添加退出时自动备份功能
+        setupAutoBackupOnExit();
+      });
+    } else {
+      // 如果页面已经加载完成，直接初始化
+      console.log('页面已加载，立即初始化系统');
+      // 添加退出时自动备份功能
+      setupAutoBackupOnExit();
+    }
+    
+    // 设置退出时自动备份数据并下载备份文件
+    function setupAutoBackupOnExit() {
+      window.addEventListener('beforeunload', function(e) {
+        try {
+          // 检查是否开启了自动备份
+          const autoBackupEnabled = localStorage.getItem('autoBackupEnabled') === 'true';
+          if (autoBackupEnabled) {
+            // 执行备份
+            performBackup();
+            console.log('系统退出时自动备份完成');
+            
+            // 下载备份文件
+            downloadBackupFile();
+          }
+        } catch (error) {
+          console.error('退出时自动备份失败:', error);
+        }
+      });
+    }
+    
+    // 下载备份文件
+    function downloadBackupFile() {
+      try {
+        const backupData = localStorage.getItem('inventory_backup');
+        if (!backupData) {
+          console.error('没有找到备份数据');
+          return;
+        }
+        
+        const data = JSON.parse(backupData);
+        const jsonString = JSON.stringify(data, null, 2);
+        const blob = new Blob([jsonString], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `库存备份_${new Date().toISOString().split('T')[0]}.json`;
+        document.body.appendChild(a);
+        a.click();
+        
+        setTimeout(() => {
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+        }, 0);
+        
+        console.log('备份文件下载成功');
+      } catch (error) {
+        console.error('下载备份文件失败:', error);
+      }
+    }
+  </script>
+</body>
 </html>
